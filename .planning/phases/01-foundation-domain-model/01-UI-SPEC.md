@@ -73,9 +73,9 @@ Exceptions:
 | Role | Size | Weight | Line Height | Usage |
 |------|------|--------|-------------|-------|
 | Body | 14px | 400 (regular) | 1.5 | Default text, descriptions, table cells, form labels |
-| Label | 12px | 500 (medium) | 1.4 | Metadata, captions, badge text, timestamps, breadcrumb items |
+| Label | 12px | 400 (regular) | 1.4 | Metadata, captions, badge text, timestamps, breadcrumb items |
 | Heading | 20px | 600 (semibold) | 1.3 | Section headings, card titles, dialog titles, page subtitles |
-| Display | 28px | 700 (bold) | 1.2 | Page titles, dashboard metric numbers, event names |
+| Display | 28px | 600 (semibold) | 1.2 | Page titles, dashboard metric numbers, event names |
 
 **Font stack:**
 ```css
@@ -84,9 +84,9 @@ Exceptions:
 ```
 
 **Rules:**
-- Body and Label use weight 400-500 only. Never bold body text for emphasis; use `font-medium` (500) sparingly.
-- Headings use weight 600. Display uses weight 700.
-- Maximum 2 font weights on any single screen (400 + 600 for most views; 400 + 700 for dashboard metric displays).
+- The design system uses exactly 2 font weights: 400 (regular) and 600 (semibold). No other weights are permitted.
+- Body and Label always use weight 400. Never bold body text for emphasis; use color, size, or layout to create hierarchy instead.
+- Headings and Display always use weight 600.
 - Line-height values are non-negotiable. `1.5` for readable body text, `1.2` for display numbers.
 - Monospace font reserved for: sizing guide specs, Redis key examples, API endpoint paths, event IDs.
 
@@ -169,6 +169,8 @@ The color system uses shadcn semantic tokens. Exact hex values depend on the use
 
 ### Event List View
 
+**Focal point:** The event card grid is the primary visual anchor of this screen. The "Create Event" CTA button in the page header is the primary action anchor, drawing the eye to the top-right as the starting point for new workflows.
+
 ```
 +--[ Page Header ]--------------------------------------------+
 |  Display: "Events"           [+ Create Event] (primary CTA)  |
@@ -224,7 +226,7 @@ The color system uses shadcn semantic tokens. Exact hex values depend on the use
 |  ToggleGroup (single): [ Pre-sent ] [ Post-entry ]            |
 +--------------------------------------------------------------+
 +--[ Sticky footer bar ]---------------------------------------+
-|  "Unsaved changes"          [Discard] [Save Configuration]    |
+|  "Unsaved changes"    [Discard Changes] [Save Configuration]  |
 +--------------------------------------------------------------+
 ```
 
@@ -348,6 +350,7 @@ Implementation: Use a horizontal stepper pattern with connected nodes. Each node
 | Destructive: Archive Event | AlertDialog: "Archive '{event name}'?" / "Archived events are read-only and moved out of your active list. You can still view archived events." / Buttons: "Cancel" | "Archive Event" |
 | Destructive: Remove Stall | AlertDialog: "Remove '{stall name}'?" / "This stall will no longer be available as a scanning point. Any active scanner sessions will be disconnected." / Buttons: "Cancel" | "Remove Stall" (destructive variant) |
 | Destructive: Remove Category | AlertDialog: "Remove '{category name}'?" / "Guests in this category will need to be reassigned. This cannot be undone." / Buttons: "Cancel" | "Remove Category" (destructive variant) |
+| Config discard action | "Discard Changes" (secondary button in sticky footer) |
 | Event status labels | "Draft", "Active", "Live", "Completed", "Archived" (title case, no abbreviations) |
 | Go-live confirmation | AlertDialog: "Go live with '{event name}'?" / "This will sync all event data to the scanning system. Once live, the event cannot be reverted to draft." / Buttons: "Cancel" | "Go Live" (primary variant) |
 | Go-live early label | "Go Live Early" (button, only visible when event is 'active') |
@@ -385,7 +388,7 @@ Implementation: Use a horizontal stepper pattern with connected nodes. Each node
 ### Configuration Editing
 1. ToggleGroups for each config option (QR strategy, food mode, food timing)
 2. Sticky footer bar appears when any config differs from saved state
-3. "Discard" resets to saved values
+3. "Discard Changes" resets to saved values
 4. "Save Configuration" persists and shows success toast
 5. Configuration locked (read-only with explanation) once event is "live"
 
