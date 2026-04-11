@@ -70,11 +70,11 @@ Plans:
   3. Event's QR strategy (unified single QR vs separate entry/food QRs) determines what QR codes are generated per guest
   4. Food QR mode (guest-linked vs anonymous) and timing (pre-sent vs post-entry) configuration correctly controls when and how food QR codes are created
   5. QR generation runs asynchronously via background workers without blocking the admin's workflow
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 03-01: TBD
-- [ ] 03-02: TBD
+- [ ] 03-01-PLAN.md -- QR payload binary format with HMAC signing, QR code image generation (yeqown/go-qrcode v2), Cloudflare R2 storage client, config extension
+- [ ] 03-02-PLAN.md -- asynq background worker, batch/single generation handlers, HTTP API for trigger/progress, Convex schema extensions, QR trigger action, Docker Compose worker service
 
 ### Phase 4: Scan Processing Core
 **Goal**: Entry scans are processed correctly under 10K concurrent load with zero race conditions, zero false positives, and zero false negatives
@@ -206,7 +206,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10
 |-------|----------------|--------|-----------|
 | 1. Foundation & Domain Model | 0/3 | Planned | - |
 | 2. Guest Management | 0/2 | Not started | - |
-| 3. QR Code Generation Pipeline | 0/2 | Not started | - |
+| 3. QR Code Generation Pipeline | 0/2 | Planned | - |
 | 4. Scan Processing Core | 0/3 | Not started | - |
 | 5. Food Scan & Rules Engine | 0/2 | Not started | - |
 | 6. Vendor Scanning Interface | 0/2 | Not started | - |
