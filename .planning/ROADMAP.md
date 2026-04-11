@@ -20,7 +20,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [ ] **Phase 6: Vendor Scanning Interface** - Device-based sessions, camera QR scanning, scan feedback, stall selection UI
 - [ ] **Phase 7: Offline Resilience** - IndexedDB scan queue, idempotent sync on reconnect, retroactive rejection, pending indicator
 - [ ] **Phase 8: Invitation Card Editor & SMS Pipeline** - Fabric.js card editor, batch image compositing, bulk SMS delivery with tracking
-- [ ] **Phase 9: Real-Time Admin Dashboard** - Convex real-time subscriptions, Go→Convex bridge mutations for scan events, live counters, vendor activity, alerts
+- [ ] **Phase 9: Real-Time Admin Dashboard** - Convex real-time subscriptions, Go->Convex bridge mutations for scan events, live counters, vendor activity, alerts
 - [ ] **Phase 10: Pre-Launch Hardening** - Load testing at 10K concurrent, integration tests for all config combos, production configuration, security validation
 
 ## Phase Details
@@ -35,12 +35,12 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. Admin can transition an event through lifecycle states (draft, active, live, completed, archived)
   4. Admin can define custom guest categories per event with different food/access privileges
   5. Admin can create a complete vendor hierarchy for an event (vendor types, categories, stalls) and each stall has its own identity in the system
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 01-01: TBD
-- [ ] 01-02: TBD
-- [ ] 01-03: TBD
+- [ ] 01-01-PLAN.md -- Infrastructure scaffold: Docker Compose (PG + PgBouncer + Redis), Go microservice with chi router, HMAC middleware, health/sync endpoints, migrations, Dockerfile
+- [ ] 01-02-PLAN.md -- Convex backend: schema (5 tables), Better Auth admin authentication, event CRUD with lifecycle state machine, guest categories CRUD
+- [ ] 01-03-PLAN.md -- Vendor hierarchy CRUD in Convex, frontend scaffold (React + Vite + TailwindCSS + TanStack Router + Convex client + auth), Convex sync action stub
 
 ### Phase 2: Guest Management
 **Goal**: Admin can populate an event with up to 60K guests through bulk import or manual entry and efficiently find any guest
@@ -204,7 +204,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation & Domain Model | 0/3 | Not started | - |
+| 1. Foundation & Domain Model | 0/3 | Planned | - |
 | 2. Guest Management | 0/2 | Not started | - |
 | 3. QR Code Generation Pipeline | 0/2 | Not started | - |
 | 4. Scan Processing Core | 0/3 | Not started | - |
