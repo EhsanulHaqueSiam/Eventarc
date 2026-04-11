@@ -1,0 +1,47 @@
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: eventarc
+      POSTGRES_USER: eventarc
+      POSTGRES_PASSWORD: ${PG_PASSWORD:-dev_password}
+    ports:
+      - "${PG_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U eventarc"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  pgbouncer:
+    image: bitnami/pgbouncer:latest
+    environment:
+      POSTGRESQL_HOST: postgres
+      POSTGRESQL_DATABASE: eventarc
+      POSTGRESQL_USERNAME: eventarc
+      POSTGRESQL_PASSWORD: ${PG_PASSWORD:-dev_password}
+      PGBOUNCER_DATABASE: eventarc
+      PGBOUNCER_POOL_MODE: transaction
+      PGBOUNCER_DEFAULT_POOL_SIZE: "150"
+      PGBOUNCER_MAX_CLIENT_CONN: "10000"
+    ports:
+      - "${PGBOUNCER_PORT:-6432}:6432"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  redis:
+    image: redis:8-alpine
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    command: redis-server --maxmemory 256mb --maxmemory-policy noeviction
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  pgdata:

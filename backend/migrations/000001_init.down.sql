@@ -1,0 +1,3 @@
+DROP TABLE IF EXISTS event_counters;
+DROP TABLE IF EXISTS entry_scans;
+DROP EXTENSION IF EXISTS "pgcrypto";

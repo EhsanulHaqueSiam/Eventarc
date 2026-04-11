@@ -1,0 +1,30 @@
+# Environment files
+.env
+.env.local
+
+# Go
+backend/tmp/
+
+# Node
+node_modules/
+dist/
+
+# Convex
+.convex/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
