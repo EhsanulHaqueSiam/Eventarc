@@ -1,0 +1,37 @@
+import { defineSchema, defineTable } from "convex/server";
+import { v } from "convex/values";
+
+export default defineSchema({
+  events: defineTable({
+    name: v.string(),
+    description: v.optional(v.string()),
+    venue: v.optional(v.string()),
+    eventDate: v.number(),
+    endDate: v.optional(v.number()),
+    status: v.union(
+      v.literal("draft"),
+      v.literal("active"),
+      v.literal("live"),
+      v.literal("completed"),
+      v.literal("archived"),
+    ),
+    config: v.object({
+      qrStrategy: v.union(v.literal("unified"), v.literal("separate")),
+      foodQrMode: v.union(v.literal("guestLinked"), v.literal("anonymous")),
+      foodQrTiming: v.union(v.literal("preSent"), v.literal("postEntry")),
+    }),
+    createdBy: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_status", ["status"])
+    .index("by_createdBy", ["createdBy"]),
+
+  guestCategories: defineTable({
+    eventId: v.id("events"),
+    name: v.string(),
+    isDefault: v.boolean(),
+  })
+    .index("by_event", ["eventId"])
+    .index("by_event_name", ["eventId", "name"]),
+});
