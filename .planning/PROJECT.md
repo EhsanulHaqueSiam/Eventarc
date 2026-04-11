@@ -62,23 +62,27 @@ QR-based event operations (entry + food) must be accurate at scale — no false 
 
 ## Constraints
 
-- **Tech stack (backend)**: Go or Rust — chosen for raw performance at high concurrency
-- **Tech stack (frontend)**: React + TailwindCSS + Vite, pnpm as package manager, TanStack if needed
+- **Tech stack (scan hot path)**: Go microservice + PostgreSQL 17 + PgBouncer + Redis 8 — handles QR scan validation, background jobs (QR generation, card compositing, SMS)
+- **Tech stack (CRUD/real-time)**: Convex Pro — handles event/guest/vendor CRUD, admin dashboard real-time subscriptions, food rules config
+- **Tech stack (frontend)**: React + TailwindCSS + Vite, pnpm as package manager, TanStack Router/Query, Convex React client
 - **Concurrency**: Must handle 10K concurrent writes without race conditions
 - **Data integrity**: Zero tolerance for false positives (unauthorized entry/food) and false negatives (valid QR rejected)
-- **Architecture**: CDN layer → Redis cache layer → persistent database layer
-- **QR storage**: Pre-generated images in cloud object storage (S3/R2), served via CDN
-- **Real-time**: Sub-second dashboard updates during live events
+- **Architecture**: Hybrid — Convex for CRUD/real-time, Go+PostgreSQL+Redis for scan hot path and background processing
+- **QR storage**: Pre-generated images in Cloudflare R2, served via CDN
+- **Real-time**: Convex subscriptions for dashboard, Go→Convex bridge mutation after each scan
 
 ## Key Decisions
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| Go or Rust for backend | Need raw concurrency performance for 10K simultaneous writes | — Pending (research will inform) |
-| Cloud object storage for QR images | 60K pre-generated images need fast CDN delivery, not DB blobs | — Pending |
-| Atomic counters over COUNT queries | Real-time dashboard at scale can't afford full-table aggregation | — Pending |
-| Device-based vendor sessions | Event staff won't remember credentials for 1-4 day events | — Pending |
-| Admin-configurable QR modes | Different events have different needs — flexibility is core | — Pending |
+| Hybrid: Convex + Go microservice | Convex excels at real-time/CRUD, Go+PG excels at high-write hot path. Evaluated Convex-only (OCC bottleneck at 10K writes), Supabase ($1600/mo, architecture mismatch), NeonDB (30% write penalty). Hybrid gets best of both. | ✓ Good |
+| Go for scan hot path (not Rust) | I/O-bound workload — Rust's 1.5x throughput advantage irrelevant when DB is the bottleneck. Go has 2-3x faster dev velocity. | ✓ Good |
+| PostgreSQL + PgBouncer for scan DB | Handles 10K concurrent INSERT ON CONFLICT natively. CockroachDB/TiDB add distributed consensus latency without benefit for single-region events. | ✓ Good |
+| Redis for atomic counters + pub/sub | INCR is lock-free, millions ops/sec. Pub/Sub bridges scan events from Go to Convex real-time layer. | ✓ Good |
+| Cloudflare R2 for image storage | Zero egress fees for serving 60K QR/card images via CDN. S3-compatible API. | ✓ Good |
+| Convex Pro for CRUD + real-time | Built-in real-time subscriptions for admin dashboard. Handles event/guest/vendor CRUD. Pro tier: 10K sessions, 256 concurrent queries. | ✓ Good |
+| Device-based vendor sessions | Event staff won't remember credentials for 1-4 day events | ✓ Good |
+| Admin-configurable QR modes | Different events have different needs — flexibility is core | ✓ Good |
 
 ## Evolution
 

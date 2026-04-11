@@ -140,13 +140,70 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| (populated during roadmap creation) | | |
+| EVNT-01 | Phase 1 | Pending |
+| EVNT-02 | Phase 1 | Pending |
+| EVNT-03 | Phase 1 | Pending |
+| EVNT-04 | Phase 1 | Pending |
+| GUST-01 | Phase 2 | Pending |
+| GUST-02 | Phase 2 | Pending |
+| GUST-03 | Phase 2 | Pending |
+| GUST-04 | Phase 2 | Pending |
+| GUST-05 | Phase 2 | Pending |
+| QRCD-01 | Phase 3 | Pending |
+| QRCD-02 | Phase 3 | Pending |
+| QRCD-03 | Phase 3 | Pending |
+| QRCD-04 | Phase 3 | Pending |
+| QRCD-05 | Phase 3 | Pending |
+| QRCD-06 | Phase 3 | Pending |
+| SCAN-01 | Phase 4 | Pending |
+| SCAN-02 | Phase 4 | Pending |
+| SCAN-03 | Phase 5 | Pending |
+| SCAN-04 | Phase 4 | Pending |
+| SCAN-05 | Phase 4 | Pending |
+| SCAN-06 | Phase 4 | Pending |
+| SCAN-07 | Phase 4 | Pending |
+| SCAN-08 | Phase 4 | Pending |
+| SCAN-09 | Phase 4 | Pending |
+| FOOD-01 | Phase 5 | Pending |
+| FOOD-02 | Phase 5 | Pending |
+| FOOD-03 | Phase 5 | Pending |
+| FOOD-04 | Phase 5 | Pending |
+| VNDR-01 | Phase 1 | Pending |
+| VNDR-02 | Phase 1 | Pending |
+| VNDR-03 | Phase 1 | Pending |
+| VSCN-01 | Phase 6 | Pending |
+| VSCN-02 | Phase 6 | Pending |
+| VSCN-03 | Phase 6 | Pending |
+| VSCN-04 | Phase 6 | Pending |
+| VSCN-05 | Phase 6 | Pending |
+| OFFL-01 | Phase 7 | Pending |
+| OFFL-02 | Phase 7 | Pending |
+| OFFL-03 | Phase 7 | Pending |
+| OFFL-04 | Phase 7 | Pending |
+| OFFL-05 | Phase 7 | Pending |
+| INVT-01 | Phase 8 | Pending |
+| INVT-02 | Phase 8 | Pending |
+| INVT-03 | Phase 8 | Pending |
+| INVT-04 | Phase 8 | Pending |
+| INVT-05 | Phase 8 | Pending |
+| INVT-06 | Phase 8 | Pending |
+| DASH-01 | Phase 9 | Pending |
+| DASH-02 | Phase 9 | Pending |
+| DASH-03 | Phase 9 | Pending |
+| DASH-04 | Phase 9 | Pending |
+| DASH-05 | Phase 9 | Pending |
+| DASH-06 | Phase 9 | Pending |
+| INFR-01 | Phase 1 | Pending |
+| INFR-02 | Phase 1 | Pending |
+| INFR-03 | Phase 4 | Pending |
+| INFR-04 | Phase 4 | Pending |
+| INFR-05 | Phase 3 | Pending |
 
 **Coverage:**
-- v1 requirements: 52 total
-- Mapped to phases: 0
-- Unmapped: 52
+- v1 requirements: 58 total
+- Mapped to phases: 58
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-04-11*
-*Last updated: 2026-04-11 after initial definition*
+*Last updated: 2026-04-11 after roadmap creation*
