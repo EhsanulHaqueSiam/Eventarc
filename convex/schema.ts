@@ -34,4 +34,30 @@ export default defineSchema({
   })
     .index("by_event", ["eventId"])
     .index("by_event_name", ["eventId", "name"]),
+
+  vendorTypes: defineTable({
+    eventId: v.id("events"),
+    name: v.union(v.literal("entry"), v.literal("food")),
+  })
+    .index("by_event", ["eventId"])
+    .index("by_event_name", ["eventId", "name"]),
+
+  vendorCategories: defineTable({
+    eventId: v.id("events"),
+    vendorTypeId: v.id("vendorTypes"),
+    name: v.string(),
+  })
+    .index("by_event", ["eventId"])
+    .index("by_vendorType", ["vendorTypeId"])
+    .index("by_event_name", ["eventId", "name"]),
+
+  stalls: defineTable({
+    eventId: v.id("events"),
+    categoryId: v.id("vendorCategories"),
+    name: v.string(),
+    isActive: v.boolean(),
+  })
+    .index("by_event", ["eventId"])
+    .index("by_category", ["categoryId"])
+    .index("by_event_name", ["eventId", "name"]),
 });

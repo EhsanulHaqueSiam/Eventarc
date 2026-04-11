@@ -207,8 +207,12 @@ export const updateStatus = mutation({
       );
     }
 
-    // TODO (Plan 03): When transitioning to "live":
-    // ctx.scheduler.runAfter(0, internal.sync.pushEventToGo, { eventId: args.eventId })
+    // D-09: When transitioning to "live", trigger full Redis data sync
+    if (args.newStatus === "live") {
+      await ctx.scheduler.runAfter(0, internal.sync.pushEventToGo, {
+        eventId: args.eventId,
+      });
+    }
 
     return args.eventId;
   },
@@ -268,6 +272,33 @@ export const remove = mutation({
       .collect();
     for (const category of categories) {
       await ctx.db.delete(category._id);
+    }
+
+    // Cascade delete stalls
+    const stalls = await ctx.db
+      .query("stalls")
+      .withIndex("by_event", (q) => q.eq("eventId", args.eventId))
+      .collect();
+    for (const stall of stalls) {
+      await ctx.db.delete(stall._id);
+    }
+
+    // Cascade delete vendorCategories
+    const vendorCategories = await ctx.db
+      .query("vendorCategories")
+      .withIndex("by_event", (q) => q.eq("eventId", args.eventId))
+      .collect();
+    for (const vc of vendorCategories) {
+      await ctx.db.delete(vc._id);
+    }
+
+    // Cascade delete vendorTypes
+    const vendorTypes = await ctx.db
+      .query("vendorTypes")
+      .withIndex("by_event", (q) => q.eq("eventId", args.eventId))
+      .collect();
+    for (const vt of vendorTypes) {
+      await ctx.db.delete(vt._id);
     }
 
     // Delete the event
