@@ -136,11 +136,11 @@ Plans:
   3. If a queued scan would have been invalid (guest hit limit while offline), it is flagged as rejected retroactively and the vendor device is notified
   4. Idempotency keys prevent double-counting even if sync retries multiple times
   5. Vendor sees a persistent "X scans pending" indicator when operating offline
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 07-01: TBD
-- [ ] 07-02: TBD
+- [ ] 07-01-PLAN.md -- Offline infrastructure: idb IndexedDB service (queue/retrieve/cleanup), network detection hook (navigator.onLine + health ping + debounce), scanner store extensions, offline UI components (OfflineBanner, QueuedScanFlash, QueuedScanResultCard)
+- [ ] 07-02-PLAN.md -- Sync and notifications: reconnection sync orchestrator (sequential processing, partial failure recovery), pending queue UI (PendingBadge, PendingQueuePanel, PendingQueueItem), ConnectionRestoredBanner, RetroactiveRejectionToast (persistent via sonner)
 
 **UI hint**: yes
 
@@ -210,7 +210,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10
 | 4. Scan Processing Core | 0/3 | Not started | - |
 | 5. Food Scan & Rules Engine | 0/2 | Not started | - |
 | 6. Vendor Scanning Interface | 0/2 | Not started | - |
-| 7. Offline Resilience | 0/2 | Not started | - |
+| 7. Offline Resilience | 0/2 | Planned | - |
 | 8. Invitation Card Editor & SMS Pipeline | 0/3 | Not started | - |
 | 9. Real-Time Admin Dashboard | 0/2 | Planned | - |
 | 10. Pre-Launch Hardening | 0/2 | Planned | - |
