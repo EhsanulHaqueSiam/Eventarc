@@ -38,9 +38,9 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 3 plans
 
 Plans:
-- [ ] 01-01-PLAN.md -- Infrastructure scaffold: Docker Compose (PG + PgBouncer + Redis), Go microservice with chi router, HMAC middleware, health/sync endpoints, migrations, Dockerfile
-- [ ] 01-02-PLAN.md -- Convex backend: schema (5 tables), Better Auth admin authentication, event CRUD with lifecycle state machine, guest categories CRUD
-- [ ] 01-03-PLAN.md -- Vendor hierarchy CRUD in Convex, frontend scaffold (React + Vite + TailwindCSS + TanStack Router + Convex client + auth), Convex sync action stub
+- [x] 01-01-PLAN.md -- Infrastructure scaffold: Docker Compose (PG + PgBouncer + Redis), Go microservice with chi router, HMAC middleware, health/sync endpoints, migrations, Dockerfile
+- [x] 01-02-PLAN.md -- Convex backend: schema (5 tables), Better Auth admin authentication, event CRUD with lifecycle state machine, guest categories CRUD
+- [x] 01-03-PLAN.md -- Vendor hierarchy CRUD in Convex, frontend scaffold (React + Vite + TailwindCSS + TanStack Router + Convex client + auth), Convex sync action stub
 
 ### Phase 2: Guest Management
 **Goal**: Admin can populate an event with up to 60K guests through bulk import or manual entry and efficiently find any guest
