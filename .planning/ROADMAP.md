@@ -191,11 +191,11 @@ Plans:
   3. QR security tests confirm that modified tokens and replayed entry QRs are rejected
   4. SMS batch test of 1,000+ messages through the production gateway confirms delivery rates
   5. 60K image generation test completes within acceptable time, stays within memory bounds, and resumes correctly after simulated crash
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 10-01: TBD
-- [ ] 10-02: TBD
+- [ ] 10-01-PLAN.md -- Integration tests (testcontainers PG+Redis), config matrix (6 combos), QR security suite (10 attack vectors), SMS batch test (1000+ messages with mock provider)
+- [ ] 10-02-PLAN.md -- k6 load test matrix (10K VUs, entry+food+SSE, all 6 configs), 60K image generation stress test (memory bounds, crash recovery), staging Docker Compose, test runner script
 
 ## Progress
 
@@ -213,4 +213,4 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10
 | 7. Offline Resilience | 0/2 | Not started | - |
 | 8. Invitation Card Editor & SMS Pipeline | 0/3 | Not started | - |
 | 9. Real-Time Admin Dashboard | 0/2 | Not started | - |
-| 10. Pre-Launch Hardening | 0/2 | Not started | - |
+| 10. Pre-Launch Hardening | 0/2 | Planned | - |
