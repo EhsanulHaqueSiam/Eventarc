@@ -60,4 +60,30 @@ export default defineSchema({
     .index("by_event", ["eventId"])
     .index("by_category", ["categoryId"])
     .index("by_event_name", ["eventId", "name"]),
+
+  guests: defineTable({
+    eventId: v.id("events"),
+    name: v.string(),
+    phone: v.string(), // Normalized to 01XXXXXXXXX format
+    categoryId: v.id("guestCategories"),
+    status: v.union(
+      v.literal("invited"),
+      v.literal("smsSent"),
+      v.literal("smsDelivered"),
+      v.literal("checkedIn"),
+    ),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_event", ["eventId"])
+    .index("by_event_status", ["eventId", "status"])
+    .index("by_event_phone", ["eventId", "phone"])
+    .searchIndex("search_name", {
+      searchField: "name",
+      filterFields: ["eventId", "categoryId", "status"],
+    })
+    .searchIndex("search_phone", {
+      searchField: "phone",
+      filterFields: ["eventId", "categoryId", "status"],
+    }),
 });
