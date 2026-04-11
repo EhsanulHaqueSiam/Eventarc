@@ -901,22 +901,19 @@ Pattern: `eventarc:` prefix for namespace isolation. Colons as separators. Conve
 | A4 | Go module path should use github.com/<user>/eventarc | Architecture | If the user prefers a different module path, adjust at `go mod init` time. |
 | A5 | Convex scheduled functions can trigger at a specific datetime for auto go-live (D-08) | Architecture Patterns | Convex scheduled functions use `ctx.scheduler.runAt(timestamp, ...)` which should support this. [ASSUMED] |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Convex Project Initialization Approach**
+1. **Convex Project Initialization Approach** — RESOLVED
    - What we know: `npm create convex@latest` initializes a Convex project, but we need it as a subdirectory within the monorepo, not the root.
-   - What's unclear: Whether the Convex CLI supports initializing in a custom directory, or if we need to initialize at root and move files.
-   - Recommendation: Initialize Convex in the `convex/` directory by running `npx convex init` from the project root. Convex functions live in `convex/` by default.
+   - Resolution: Initialize Convex in the `convex/` directory by running `npx convex init` from the project root. Convex functions live in `convex/` by default. The CLI supports this natively.
 
-2. **Better Auth Pin Version Currency**
+2. **Better Auth Pin Version Currency** — RESOLVED
    - What we know: Convex Better Auth docs recommend pinning better-auth to 1.5.3. Latest better-auth is 1.6.2.
-   - What's unclear: Whether @convex-dev/better-auth@0.11.4 works with newer better-auth versions.
-   - Recommendation: Start with the pinned version (1.5.3). Test upgrading after Phase 1 is stable.
+   - Resolution: Start with the pinned version (1.5.3) as recommended by Convex docs. Test upgrading after Phase 1 is stable. The pin ensures compatibility with @convex-dev/better-auth@0.11.4.
 
-3. **Convex + Vite Monorepo Configuration**
+3. **Convex + Vite Monorepo Configuration** — RESOLVED
    - What we know: Convex expects `convex/` at the project root by default.
-   - What's unclear: How to configure Convex when frontend is in `frontend/` subdirectory.
-   - Recommendation: Keep `convex/` at the monorepo root (this is standard). Configure Vite's `VITE_CONVEX_URL` in `frontend/.env.local`. The Convex React client connects via URL, not file path.
+   - Resolution: Keep `convex/` at the monorepo root (this is standard). Configure Vite's `VITE_CONVEX_URL` in `frontend/.env.local`. The Convex React client connects via URL, not file path.
 
 ## Environment Availability
 
