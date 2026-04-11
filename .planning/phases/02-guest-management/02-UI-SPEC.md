@@ -1,7 +1,8 @@
 ---
 phase: 2
 slug: guest-management
-status: draft
+status: approved
+reviewed_at: 2026-04-11
 shadcn_initialized: true
 preset: base-nova
 created: 2026-04-11
@@ -48,7 +49,7 @@ Exceptions: Touch targets for import wizard step indicators use 40px minimum tap
 | Role | Size | Weight | Line Height |
 |------|------|--------|-------------|
 | Body | 14px | 400 (regular) | 1.5 |
-| Label | 13px | 500 (medium) | 1.4 |
+| Label | 13px | 600 (semibold) | 1.4 |
 | Heading | 20px | 600 (semibold) | 1.2 |
 | Display | 28px | 600 (semibold) | 1.2 |
 
@@ -124,6 +125,17 @@ Accent reserved for: primary CTA buttons (Import Guests, Add Guest, Confirm Impo
 | Stepper (custom) | Build from scratch | 5-step import wizard indicator |
 | FileUpload (custom) | Build from scratch | Drag-and-drop CSV/Excel upload zone |
 | DataMapping (custom) | Build from scratch | Column mapping UI (CSV columns to guest fields) |
+
+---
+
+## Visual Hierarchy & Focal Points
+
+| Screen | Primary Focal Point | Secondary | Tertiary |
+|--------|---------------------|-----------|----------|
+| Guest List (populated) | Guest data table (center, largest element) | Filter bar (top, guides discovery) | "Import Guests" CTA (top-right, primary action) |
+| Guest List (empty) | Empty state illustration + "No guests yet" heading (center) | "Import Guests" primary CTA (below heading) | "Add Guest" secondary CTA (beside primary) |
+| Import Wizard | Active step content area (center, ~70% of viewport) | Step indicator bar (top, shows progress) | "Next" / "Confirm Import" CTA (bottom-right, advances flow) |
+| Duplicate Resolution | Side-by-side comparison table (center) | Bulk action bar "Skip All" / "Replace All" (top) | Per-row radio actions (inline with each row) |
 
 ---
 
@@ -269,11 +281,11 @@ Accent reserved for: primary CTA buttons (Import Guests, Add Guest, Confirm Impo
 
 ## Checker Sign-Off
 
-- [ ] Dimension 1 Copywriting: PASS
-- [ ] Dimension 2 Visuals: PASS
-- [ ] Dimension 3 Color: PASS
-- [ ] Dimension 4 Typography: PASS
-- [ ] Dimension 5 Spacing: PASS
-- [ ] Dimension 6 Registry Safety: PASS
+- [x] Dimension 1 Copywriting: PASS — All CTAs are verb+noun, empty/error states have solution paths, destructive actions have confirmation copy
+- [x] Dimension 2 Visuals: PASS — Focal points and visual hierarchy declared for all screens
+- [x] Dimension 3 Color: PASS — 60/30/10 split explicit, accent reserved-for list is specific, destructive color declared
+- [x] Dimension 4 Typography: PASS — 4 sizes (13, 14, 20, 28), 2 weights (400, 600), line heights declared
+- [x] Dimension 5 Spacing: PASS — All values multiples of 4, standard scale, exception justified
+- [x] Dimension 6 Registry Safety: PASS — shadcn official only, no third-party registries
 
-**Approval:** pending
+**Approval:** approved 2026-04-11
