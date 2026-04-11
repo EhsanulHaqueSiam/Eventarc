@@ -55,7 +55,7 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 02-01-PLAN.md -- Convex backend: guests schema (search indexes, regular indexes), phone validation, guest CRUD mutations, search/filter queries, paginated list, bulk import pipeline (chunked 500-row batches), duplicate detection
+- [x] 02-01-PLAN.md -- Convex backend: guests schema (search indexes, regular indexes), phone validation, guest CRUD mutations, search/filter queries, paginated list, bulk import pipeline (chunked 500-row batches), duplicate detection
 - [ ] 02-02-PLAN.md -- Frontend: guest list page (search, filter, pagination), Add Guest dialog, 5-step import wizard (upload, column mapping, validation, duplicate resolution, chunked import with progress), SheetJS CSV/Excel parsing, Zustand wizard state
 
 **UI hint**: yes
@@ -73,7 +73,7 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 03-01-PLAN.md -- QR payload binary format with HMAC signing, QR code image generation (yeqown/go-qrcode v2), Cloudflare R2 storage client, config extension
+- [x] 03-01-PLAN.md -- QR payload binary format with HMAC signing, QR code image generation (yeqown/go-qrcode v2), Cloudflare R2 storage client, config extension
 - [ ] 03-02-PLAN.md -- asynq background worker, batch/single generation handlers, HTTP API for trigger/progress, Convex schema extensions, QR trigger action, Docker Compose worker service
 
 ### Phase 4: Scan Processing Core

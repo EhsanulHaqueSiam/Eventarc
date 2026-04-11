@@ -4,8 +4,8 @@ milestone: v1.0
 milestone_name: milestone
 status: executing
 stopped_at: Phase 4 context gathered
-last_updated: "2026-04-11T16:41:40.163Z"
-last_activity: 2026-04-11 -- Phase 2 planning complete
+last_updated: "2026-04-11T16:42:50.716Z"
+last_activity: 2026-04-11 -- Phase 02 execution started
 progress:
   total_phases: 10
   completed_phases: 1
@@ -26,9 +26,9 @@ See: .planning/PROJECT.md (updated 2026-04-11)
 ## Current Position
 
 Phase: 03 (qr-code-generation-pipeline) — EXECUTING
-Plan: 1 of 2
-Status: Ready to execute
-Last activity: 2026-04-11 -- Phase 2 planning complete
+Plan: 1 of 2 complete (Wave 1 done, Wave 2 pending)
+Status: Executing Phase 03
+Last activity: 2026-04-11 -- Phase 03 Wave 1 (Plan 03-01) executed successfully
 
 Progress: [█░░░░░░░░░] 10%
 
@@ -72,13 +72,13 @@ Recent decisions affecting current work:
 
 ### Blockers/Concerns
 
-- QR HMAC payload format must be locked in Phase 3 before any cards are generated -- changing it after invitation delivery is impossible
+- QR HMAC payload format LOCKED in Phase 3 (v0x01: version + type + eventID + guestID + timestamp + HMAC-SHA256, Base64URL encoded) -- changing it after invitation delivery is impossible
 - libvips vs Go stdlib for image compositing needs benchmark resolution before Phase 8
 - Bangladesh SMS carrier rate limits need provider-specific research before Phase 8
 
 ## Session Continuity
 
-Last session: 2026-04-11T16:41:40.161Z
-Stopped at: Phase 4 context gathered
-Resume file: .planning/phases/04-scan-processing-core/04-CONTEXT.md
-Resume context: All 3 plans executed. User must run `npx convex dev` to connect Convex deployment, then verify the full Phase 1 deliverable per Task 3 acceptance criteria. Type "approved" to complete.
+Last session: 2026-04-11
+Stopped at: Phase 3 Wave 1 complete, Wave 2 pending
+Resume file: .planning/phases/03-qr-code-generation-pipeline/03-02-PLAN.md
+Resume context: Plan 03-01 (Wave 1) fully executed -- QR payload, image generation, R2 client all implemented and tested (27 tests passing). Plan 03-02 (Wave 2) is next: asynq worker binary, HTTP API endpoints, Convex schema extensions, Docker Compose worker service. Run `/gsd-execute-phase 3` to continue.
