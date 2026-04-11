@@ -1,7 +1,7 @@
 ---
 phase: 6
 slug: vendor-scanning-interface
-status: draft
+status: approved
 shadcn_initialized: true
 preset: base-nova
 created: 2026-04-12
@@ -527,11 +527,11 @@ ready -> idle (vendor tapped Scan Next, camera reactivates)
 
 ## Checker Sign-Off
 
-- [ ] Dimension 1 Copywriting: PASS
-- [ ] Dimension 2 Visuals: PASS
-- [ ] Dimension 3 Color: PASS
-- [ ] Dimension 4 Typography: PASS
-- [ ] Dimension 5 Spacing: PASS
-- [ ] Dimension 6 Registry Safety: PASS
+- [x] Dimension 1 Copywriting: PASS (FLAG: "Confirm" and "Dismiss" are single-word CTAs, but contextually appropriate for two-step scan flow where the result card heading provides the noun context)
+- [x] Dimension 2 Visuals: PASS (focal points declared for all screens: viewfinder box, flash overlay, result card, setup button)
+- [x] Dimension 3 Color: PASS (60/30/10 split explicit, accent reserved-for list has 5 specific elements, scan overlay colors with exact oklch values)
+- [x] Dimension 4 Typography: PASS (4 sizes: 16/14/24/36, 2 weights: 400/600, line heights declared)
+- [x] Dimension 5 Spacing: PASS (all values multiples of 4, exceptions justified: 44px touch, 56px actions, 80px action area)
+- [x] Dimension 6 Registry Safety: PASS (shadcn official only, no third-party registries, html5-qrcode is npm dependency not registry block)
 
-**Approval:** pending
+**Approval:** approved 2026-04-12
