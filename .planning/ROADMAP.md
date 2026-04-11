@@ -52,11 +52,11 @@ Plans:
   3. Admin can manually add an individual guest with name, phone number, and category assignment
   4. Admin can search and filter among 60K guest records by name, phone number, category, and status with responsive results
   5. Each guest's lifecycle status (invited, SMS sent, delivered, checked in, not arrived) is tracked and visible per event
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 02-01: TBD
-- [ ] 02-02: TBD
+- [ ] 02-01-PLAN.md -- Convex backend: guests schema (search indexes, regular indexes), phone validation, guest CRUD mutations, search/filter queries, paginated list, bulk import pipeline (chunked 500-row batches), duplicate detection
+- [ ] 02-02-PLAN.md -- Frontend: guest list page (search, filter, pagination), Add Guest dialog, 5-step import wizard (upload, column mapping, validation, duplicate resolution, chunked import with progress), SheetJS CSV/Excel parsing, Zustand wizard state
 
 **UI hint**: yes
 
@@ -205,7 +205,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation & Domain Model | 0/3 | Planned | - |
-| 2. Guest Management | 0/2 | Not started | - |
+| 2. Guest Management | 0/2 | Planned | - |
 | 3. QR Code Generation Pipeline | 0/2 | Planned | - |
 | 4. Scan Processing Core | 0/3 | Not started | - |
 | 5. Food Scan & Rules Engine | 0/2 | Not started | - |
