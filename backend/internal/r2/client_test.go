@@ -97,6 +97,37 @@ func TestNewClient_ValidConfig(t *testing.T) {
 	}
 }
 
+func TestBuildCardKey(t *testing.T) {
+	tests := []struct {
+		name     string
+		eventID  string
+		guestID  string
+		expected string
+	}{
+		{
+			name:     "standard IDs",
+			eventID:  "evt123",
+			guestID:  "gst456",
+			expected: "evt123/gst456/card.png",
+		},
+		{
+			name:     "Convex-style IDs",
+			eventID:  "jd7f2g3h4k5m6n",
+			guestID:  "km8n9p0q1r2s3t",
+			expected: "jd7f2g3h4k5m6n/km8n9p0q1r2s3t/card.png",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			key := BuildCardKey(tt.eventID, tt.guestID)
+			if key != tt.expected {
+				t.Errorf("BuildCardKey(%q, %q) = %q, want %q", tt.eventID, tt.guestID, key, tt.expected)
+			}
+		})
+	}
+}
+
 func TestNewClient_TrailingSlashTrimmed(t *testing.T) {
 	client, err := NewClient(
 		"test-account-id",
