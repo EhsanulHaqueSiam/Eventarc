@@ -97,6 +97,14 @@ func main() {
 		r.Get("/progress", cardHandler.HandleCompositeProgress)
 	})
 
+	// SMS delivery endpoints (HMAC-protected)
+	smsHandler := handler.NewSMSHandler(asynqClient, redisClient)
+	r.Route("/api/v1/events/{eventId}/sms", func(r chi.Router) {
+		r.Use(middleware.HMACAuth(cfg.HMACSecret))
+		r.Post("/send", smsHandler.HandleSendSMS)
+		r.Get("/progress", smsHandler.HandleSMSProgress)
+	})
+
 	// Create server
 	srv := &http.Server{
 		Addr:    ":" + cfg.Port,
