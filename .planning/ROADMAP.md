@@ -159,7 +159,7 @@ Plans:
 Plans:
 - [x] 08-01: Image compositing pipeline & card template backend (Wave 1)
 - [x] 08-02: Frontend card editor with Fabric.js & SMS dashboard UI (Wave 1)
-- [ ] 08-03: SMS provider abstraction & bulk delivery pipeline (Wave 2)
+- [x] 08-03: SMS provider abstraction & bulk delivery pipeline (Wave 2)
 
 **UI hint**: yes
 
