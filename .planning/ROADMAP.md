@@ -154,12 +154,12 @@ Plans:
   3. Composite card images are stored in R2 and served via CDN
   4. Bulk SMS sends invitation messages with card download links to all guests, throttled to avoid carrier spam detection
   5. Per-guest SMS delivery status (queued, sent, delivered, failed) is tracked with retry for failures
-**Plans**: TBD
+**Plans**: 3 plans in 2 waves
 
 Plans:
-- [ ] 08-01: TBD
-- [ ] 08-02: TBD
-- [ ] 08-03: TBD
+- [ ] 08-01: Image compositing pipeline & card template backend (Wave 1)
+- [ ] 08-02: Frontend card editor with Fabric.js & SMS dashboard UI (Wave 1)
+- [ ] 08-03: SMS provider abstraction & bulk delivery pipeline (Wave 2)
 
 **UI hint**: yes
 
