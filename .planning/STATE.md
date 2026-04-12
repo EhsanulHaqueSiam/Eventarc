@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Phase 2 complete, ready to execute Phase 3
-last_updated: "2026-04-12T04:59:55.601Z"
-last_activity: 2026-04-12 -- Phase 8 planning complete
+stopped_at: Phase 3 complete, ready to execute Phase 4
+last_updated: "2026-04-12T11:15:00.000Z"
+last_activity: 2026-04-12 -- Phase 03 verification passed
 progress:
   total_phases: 10
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 23
-  completed_plans: 6
-  percent: 26
+  completed_plans: 8
+  percent: 35
 ---
 
 # Project State
@@ -21,22 +21,22 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-12)
 
 **Core value:** QR-based event operations (entry + food) must be accurate at scale -- no false positives, no false negatives, no race conditions, even with 10K concurrent scans.
-**Current focus:** Phase 03 — qr-code-generation-pipeline
+**Current focus:** Phase 04 — scan-processing-core
 
 ## Current Position
 
-Phase: 03
-Plan: Not started
-Status: Ready to execute
-Last activity: 2026-04-12 -- Phase 8 planning complete
+Phase: 03 (qr-code-generation-pipeline) — COMPLETE
+Plan: 2 of 2
+Status: Ready to execute Phase 04
+Last activity: 2026-04-12 -- Phase 03 verification passed
 
-Progress: [█░░░░░░░░░] 10%
+Progress: [████░░░░░░] 35%
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 2
+- Total plans completed: 4
 - Average duration: -
 - Total execution time: 0 hours
 
@@ -45,6 +45,7 @@ Progress: [█░░░░░░░░░] 10%
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 02 | 2 | - | - |
+| 03 | 2 | - | - |
 
 **Recent Trend:**
 
@@ -66,6 +67,9 @@ Recent decisions affecting current work:
 - [Phase 2]: Two Convex search indexes (search_name, search_phone) — one search field per index limitation
 - [Phase 2]: 500-row batch size for imports — balances Convex transaction limits and progress granularity
 - [Phase 2]: Phone normalized to 01XXXXXXXXX before storage — ensures duplicate detection across formats
+- [Phase 3]: TaskEnqueuer interface abstracts asynq.Client for handler-level test mocking
+- [Phase 3]: fetchGuestIDs stubbed — real Convex HTTP integration deferred to Phase 4
+- [Phase 3]: Multi-target Dockerfile builds both server and worker from same Go module
 
 ### Pending Todos
 
@@ -82,6 +86,6 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-04-12
-Stopped at: Phase 2 complete, ready to execute Phase 3
+Stopped at: Phase 3 complete, ready to execute Phase 4
 Resume file: None
-Resume context: Phase 02 (guest-management) fully executed -- both plans complete, verification passed, all 5 GUST requirements met. Phase 03 (qr-code-generation-pipeline) has Plan 01 already complete (QR payload, image generation, R2 client). Plan 03-02 (Wave 2) is next: asynq worker binary, HTTP API endpoints, Convex schema extensions, Docker Compose worker service. Run `/gsd-execute-phase 3` to continue.
+Resume context: Phase 03 (qr-code-generation-pipeline) fully executed -- both plans complete, verification passed, all 7 requirements met (QRCD-01 through QRCD-06, INFR-05). Code review clean. QR payload encoding, image generation, R2 storage, asynq worker, HTTP API, Convex schema+action, Docker Compose worker service all in place. fetchGuestIDs is stubbed -- Phase 4 will wire real Convex integration. Run `/gsd-execute-phase 4` to continue.

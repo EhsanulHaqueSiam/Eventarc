@@ -74,7 +74,7 @@ Plans:
 
 Plans:
 - [x] 03-01-PLAN.md -- QR payload binary format with HMAC signing, QR code image generation (yeqown/go-qrcode v2), Cloudflare R2 storage client, config extension
-- [ ] 03-02-PLAN.md -- asynq background worker, batch/single generation handlers, HTTP API for trigger/progress, Convex schema extensions, QR trigger action, Docker Compose worker service
+- [x] 03-02-PLAN.md -- asynq background worker, batch/single generation handlers, HTTP API for trigger/progress, Convex schema extensions, QR trigger action, Docker Compose worker service
 
 ### Phase 4: Scan Processing Core
 **Goal**: Entry scans are processed correctly under 10K concurrent load with zero race conditions, zero false positives, and zero false negatives
