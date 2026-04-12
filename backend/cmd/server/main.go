@@ -76,6 +76,7 @@ func main() {
 
 	// Scan processing (unauthenticated — QR payload HMAC is the auth mechanism)
 	scanSvc := scan.NewService(redisClient, pgPool, []byte(cfg.HMACSecret))
+	scanSvc.SetAsynqClient(asynqClient)
 	r.Route("/api/v1/scan", func(r chi.Router) {
 		r.Post("/entry", scan.HandleEntryScan(scanSvc))
 	})

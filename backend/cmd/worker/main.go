@@ -6,11 +6,15 @@ import (
 	"os/signal"
 	"syscall"
 
+	"context"
+
 	"github.com/hibiken/asynq"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 
 	"github.com/ehsanul-haque-siam/eventarc/internal/config"
 	"github.com/ehsanul-haque-siam/eventarc/internal/r2"
+	"github.com/ehsanul-haque-siam/eventarc/internal/scan"
 	"github.com/ehsanul-haque-siam/eventarc/internal/worker"
 )
 
@@ -42,6 +46,17 @@ func main() {
 	asynqClient := asynq.NewClient(asynq.RedisClientOpt{Addr: redisAddr})
 	defer asynqClient.Close()
 
+	// Connect to PostgreSQL
+	pgPool, err := pgxpool.New(context.Background(), cfg.DatabaseURL)
+	if err != nil {
+		logger.Error("failed to create PostgreSQL pool", "error", err)
+		os.Exit(1)
+	}
+	defer pgPool.Close()
+
+	// Create scan PG store for background write tasks
+	scanPGStore := scan.NewPGStore(pgPool)
+
 	// Create R2 storage client
 	r2Client, err := r2.NewClient(
 		cfg.R2AccountID,
@@ -64,9 +79,11 @@ func main() {
 		asynq.Config{
 			Concurrency: 10,
 			Queues: map[string]int{
-				"critical": 6,
-				"default":  3,
-				"low":      1,
+				"critical":    6,
+				"pg-writes":   4,
+				"convex-sync": 2,
+				"default":     3,
+				"low":         1,
 			},
 			Logger: newAsynqLogger(logger),
 		},
@@ -76,6 +93,8 @@ func main() {
 	mux := asynq.NewServeMux()
 	mux.HandleFunc(worker.TaskQRGenerateBatch, qrHandler.HandleGenerateBatch)
 	mux.HandleFunc(worker.TaskQRGenerateSingle, qrHandler.HandleGenerateSingle)
+	mux.HandleFunc(scan.TaskPGWrite, scan.HandlePGWrite(scanPGStore))
+	mux.HandleFunc(scan.TaskConvexSync, scan.HandleConvexSync())
 
 	// Start worker in goroutine
 	go func() {

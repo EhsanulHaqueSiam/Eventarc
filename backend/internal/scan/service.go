@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
+	"github.com/hibiken/asynq"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 
@@ -15,18 +17,30 @@ import (
 
 // Service handles entry scan processing with atomic Redis operations.
 type Service struct {
-	redis      *redis.Client
-	pgPool     *pgxpool.Pool
-	hmacSecret []byte
+	redis       *redis.Client
+	pgPool      *pgxpool.Pool
+	pgStore     *PGStore
+	asynqClient *asynq.Client
+	hmacSecret  []byte
 }
 
 // NewService creates a new scan processing service.
 func NewService(redisClient *redis.Client, pgPool *pgxpool.Pool, hmacSecret []byte) *Service {
+	var pgStore *PGStore
+	if pgPool != nil {
+		pgStore = NewPGStore(pgPool)
+	}
 	return &Service{
 		redis:      redisClient,
 		pgPool:     pgPool,
+		pgStore:    pgStore,
 		hmacSecret: hmacSecret,
 	}
+}
+
+// SetAsynqClient configures the asynq client for background task enqueueing.
+func (s *Service) SetAsynqClient(client *asynq.Client) {
+	s.asynqClient = client
 }
 
 // ProcessEntryScan is the main scan pipeline:
@@ -55,6 +69,22 @@ func (s *Service) ProcessEntryScan(ctx context.Context, req ScanRequest) (ScanRe
 		return ScanResult{}, fmt.Errorf("redis guest lookup failed: %w", err)
 	}
 	if len(guestData) == 0 {
+		// PG fallback: check if guest has an existing check-in record
+		if s.pgStore != nil {
+			existing, pgErr := s.pgStore.GetExistingCheckIn(ctx, payload.EventID, payload.GuestID)
+			if pgErr == nil && existing != nil {
+				// Guest found in PG with existing check-in — return duplicate
+				return ScanResult{
+					Status: "duplicate",
+					Original: &ScanInfo{
+						CheckedInAt: existing.ScannedAt.Time.Format(time.RFC3339),
+						StallID:     existing.StallID,
+						DeviceID:    existing.DeviceID,
+					},
+					Message: "Already checked in",
+				}, nil
+			}
+		}
 		return ScanResult{}, model.ErrNotFound
 	}
 
@@ -100,6 +130,38 @@ func (s *Service) ProcessEntryScan(ctx context.Context, req ScanRequest) (ScanRe
 			},
 			Message: "Already checked in",
 		}, nil
+	}
+
+	// Enqueue async PG write and Convex sync tasks
+	if s.asynqClient != nil {
+		pgTask, taskErr := NewPGWriteTask(PGWritePayload{
+			EventID:       payload.EventID,
+			GuestID:       payload.GuestID,
+			StallID:       req.StallID,
+			DeviceID:      req.DeviceID,
+			ScannedAt:     now,
+			GuestCategory: guest.Category,
+			Status:        "valid",
+		})
+		if taskErr == nil {
+			if _, enqErr := s.asynqClient.Enqueue(pgTask); enqErr != nil {
+				slog.Warn("failed to enqueue PG write task", "error", enqErr,
+					"event_id", payload.EventID, "guest_id", payload.GuestID)
+			}
+		}
+
+		convexTask, taskErr := NewConvexSyncTask(ConvexSyncPayload{
+			EventID:   payload.EventID,
+			GuestID:   payload.GuestID,
+			Status:    "valid",
+			ScannedAt: now,
+		})
+		if taskErr == nil {
+			if _, enqErr := s.asynqClient.Enqueue(convexTask); enqErr != nil {
+				slog.Warn("failed to enqueue Convex sync task", "error", enqErr,
+					"event_id", payload.EventID, "guest_id", payload.GuestID)
+			}
+		}
 	}
 
 	// Valid new check-in
