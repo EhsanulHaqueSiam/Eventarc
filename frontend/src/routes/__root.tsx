@@ -18,15 +18,16 @@ function RootLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const isLoginPage = location.pathname === "/login";
+  const isScannerPage = location.pathname.startsWith("/scanner");
 
   useEffect(() => {
-    if (user === null && !isLoginPage) {
+    if (user === null && !isLoginPage && !isScannerPage) {
       navigate({ to: "/login" });
     }
-  }, [user, isLoginPage, navigate]);
+  }, [user, isLoginPage, isScannerPage, navigate]);
 
-  // On login page, render without shell
-  if (isLoginPage) {
+  // On login page or scanner page, render without admin shell
+  if (isLoginPage || isScannerPage) {
     return (
       <div className="min-h-screen bg-background">
         <Outlet />
