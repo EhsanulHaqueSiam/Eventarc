@@ -12,7 +12,8 @@ QR-based event operations (entry + food) must be accurate at scale — no false 
 
 ### Validated
 
-(None yet — ship to validate)
+- [x] Guest management with CSV/Excel bulk import and manual entry — Validated in Phase 2: guest-management (2026-04-12)
+- [x] Admin-configurable guest categories with different food/access privileges per event — Validated in Phase 1: foundation-domain-model (categories CRUD)
 
 ### Active
 
