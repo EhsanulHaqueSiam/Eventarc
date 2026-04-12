@@ -81,6 +81,14 @@ func main() {
 		r.Get("/progress/{eventId}", qrHandler.HandleGetProgress)
 	})
 
+	// Card compositing endpoints (HMAC-protected)
+	cardHandler := handler.NewCardHandler(asynqClient, redisClient)
+	r.Route("/api/v1/events/{eventId}/cards", func(r chi.Router) {
+		r.Use(middleware.HMACAuth(cfg.HMACSecret))
+		r.Post("/composite", cardHandler.HandleCompositeCards)
+		r.Get("/progress", cardHandler.HandleCompositeProgress)
+	})
+
 	// Create server
 	srv := &http.Server{
 		Addr:    ":" + cfg.Port,

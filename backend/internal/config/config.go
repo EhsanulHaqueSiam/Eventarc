@@ -15,6 +15,9 @@ type Config struct {
 	R2SecretAccessKey string
 	R2BucketName      string
 	R2PublicURL       string // CDN base URL, e.g., "https://cdn.eventarc.app"
+	// Convex integration
+	ConvexURL             string // URL for Convex HTTP API
+	ConvexDeploymentToken string // Auth token for Convex admin API
 }
 
 // Load reads configuration from environment variables with sensible defaults.
@@ -28,8 +31,10 @@ func Load() *Config {
 		R2AccountID:       getEnv("R2_ACCOUNT_ID", ""),
 		R2AccessKeyID:     getEnv("R2_ACCESS_KEY_ID", ""),
 		R2SecretAccessKey: getEnv("R2_SECRET_ACCESS_KEY", ""),
-		R2BucketName:      getEnv("R2_BUCKET_NAME", "eventarc-qr"),
-		R2PublicURL:       getEnv("R2_PUBLIC_URL", ""),
+		R2BucketName:          getEnv("R2_BUCKET_NAME", "eventarc-qr"),
+		R2PublicURL:           getEnv("R2_PUBLIC_URL", ""),
+		ConvexURL:             getEnv("CONVEX_URL", ""),
+		ConvexDeploymentToken: getEnv("CONVEX_DEPLOYMENT_TOKEN", ""),
 	}
 }
 

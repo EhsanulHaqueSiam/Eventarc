@@ -91,6 +91,9 @@ export default defineSchema({
         unified: v.optional(v.string()),
       }),
     ),
+    // Card compositing fields (Phase 8)
+    cardImageUrl: v.optional(v.string()), // CDN URL of composite card
+    cardImageKey: v.optional(v.string()), // R2 object key
     createdAt: v.number(),
     updatedAt: v.number(),
   })
@@ -105,4 +108,22 @@ export default defineSchema({
       searchField: "phone",
       filterFields: ["eventId", "categoryId", "status"],
     }),
+
+  cardTemplates: defineTable({
+    eventId: v.id("events"),
+    name: v.string(),
+    backgroundImageUrl: v.string(),
+    backgroundImageKey: v.string(),
+    canvasWidth: v.number(),
+    canvasHeight: v.number(),
+    qrOverlay: v.object({
+      left: v.number(),
+      top: v.number(),
+      scaleX: v.number(),
+      scaleY: v.number(),
+      angle: v.number(),
+    }),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_event", ["eventId"]),
 });
