@@ -79,6 +79,7 @@ func main() {
 	scanSvc.SetAsynqClient(asynqClient)
 	r.Route("/api/v1/scan", func(r chi.Router) {
 		r.Post("/entry", scan.HandleEntryScan(scanSvc))
+		r.Post("/food", scan.HandleFoodScan(scanSvc))
 	})
 
 	// QR generation endpoints (HMAC-protected)
