@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Phase 4 complete, ready to execute Phase 5
-last_updated: "2026-04-12T05:45:00.000Z"
-last_activity: 2026-04-12 -- Phase 04 execution complete, code review clean
+stopped_at: Phase 8 complete, ready to execute Phase 9
+last_updated: "2026-04-12T11:50:00.000Z"
+last_activity: 2026-04-12 -- Phase 08 execution complete, code review clean
 progress:
   total_phases: 10
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 23
-  completed_plans: 11
-  percent: 48
+  completed_plans: 14
+  percent: 61
 ---
 
 # Project State
@@ -21,22 +21,22 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-12)
 
 **Core value:** QR-based event operations (entry + food) must be accurate at scale -- no false positives, no false negatives, no race conditions, even with 10K concurrent scans.
-**Current focus:** Phase 05 — food-scanning-rules
+**Current focus:** Phase 09 — real-time-admin-dashboard
 
 ## Current Position
 
-Phase: 04 (scan-processing-core) — COMPLETE
+Phase: 08 (invitation-card-sms-pipeline) — COMPLETE
 Plan: 3 of 3
-Status: Ready to execute Phase 05
-Last activity: 2026-04-12 -- Phase 04 execution complete, code review clean
+Status: Ready to execute Phase 09
+Last activity: 2026-04-12 -- Phase 08 execution complete, code review clean
 
-Progress: [█████░░░░░] 48%
+Progress: [██████░░░░] 61%
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 7
+- Total plans completed: 10
 - Average duration: -
 - Total execution time: 0 hours
 
@@ -47,6 +47,7 @@ Progress: [█████░░░░░] 48%
 | 02 | 2 | - | - |
 | 03 | 2 | - | - |
 | 04 | 3 | - | - |
+| 08 | 3 | - | - |
 
 **Recent Trend:**
 
@@ -76,6 +77,10 @@ Recent decisions affecting current work:
 - [Phase 4]: Async PG writes via asynq (scan:pg-write queue) — vendor gets immediate Redis confirmation
 - [Phase 4]: Counter re-seeding from PG uses MULTI/EXEC for atomic Redis writes (no partial state)
 - [Phase 4]: Scan endpoint unauthenticated — QR payload HMAC is the authentication mechanism
+- [Phase 8]: disintegration/imaging with CatmullRom resampling for card compositing (quality/speed balance)
+- [Phase 8]: SMS.NET.BD as initial provider, abstracted behind SMSProvider interface for swapability
+- [Phase 8]: SMS batch size 100, rate limit 5 batches/sec, exponential backoff retry max 5 times
+- [Phase 8]: Insufficient balance (error 416) halts batch immediately via asynq.SkipRetry
 
 ### Pending Todos
 
@@ -86,12 +91,12 @@ Recent decisions affecting current work:
 ### Blockers/Concerns
 
 - QR HMAC payload format LOCKED in Phase 3 (v0x01: version + type + eventID + guestID + timestamp + HMAC-SHA256, Base64URL encoded) -- changing it after invitation delivery is impossible
-- libvips vs Go stdlib for image compositing needs benchmark resolution before Phase 8
-- Bangladesh SMS carrier rate limits need provider-specific research before Phase 8
+- RESOLVED: Image compositing uses disintegration/imaging (CatmullRom) — libvips not needed
+- RESOLVED: SMS rate limiting set at 500/sec (5 batches x 100/batch) — conservative vs 50K/min provider limit
 
 ## Session Continuity
 
 Last session: 2026-04-12
-Stopped at: Phase 4 complete, ready to execute Phase 5
+Stopped at: Phase 8 complete, ready to execute Phase 9
 Resume file: None
-Resume context: Phase 04 (scan-processing-core) fully executed -- all 3 plans complete across 3 waves, code review clean. Entry scan pipeline: QR HMAC validation, Redis guest lookup with PG fallback, atomic Lua check-in script, structured JSON responses (200/400/401/404/409/422). PG durability: migration 000002, sqlc queries, asynq workers (scan:pg-write, scan:convex-sync), counter re-seeding via MULTI/EXEC. Concurrency verified: 20 tests pass with -race (500 unique, 100 duplicate, 1000 mixed, per-category counters). k6 load test scripts ready for 10K VU validation. Run `/gsd-execute-phase 5` to continue.
+Resume context: Phase 08 (invitation-card-sms-pipeline) fully executed -- all 3 plans complete across 2 waves, code review clean. Wave 1: Go image compositor (disintegration/imaging, CatmullRom), R2 Download extension, card compositing HTTP API + asynq tasks, Convex cardTemplates table + CRUD, Fabric.js card editor with drag-drop QR positioning, template sidebar, compositing progress polling, SMS dashboard UI. Wave 2: SMSProvider interface + SMS.NET.BD implementation (httptest-verified), asynq SMS worker (batch 100, rate 5/sec, exp backoff max 5, halt on insufficient balance), SMS HTTP handlers, Convex smsDeliveries table. Run `/gsd-execute-phase 9` to continue.
