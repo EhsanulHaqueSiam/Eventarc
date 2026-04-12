@@ -27,3 +27,19 @@ type EventCounter struct {
 	Value      int64              `json:"value"`
 	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
 }
+
+type FoodScan struct {
+	ID               pgtype.UUID        `json:"id"`
+	IdempotencyKey   string             `json:"idempotency_key"`
+	EventID          string             `json:"event_id"`
+	GuestID          string             `json:"guest_id"`
+	FoodCategoryID   string             `json:"food_category_id"`
+	StallID          string             `json:"stall_id"`
+	ScannedAt        pgtype.Timestamptz `json:"scanned_at"`
+	SyncedAt         pgtype.Timestamptz `json:"synced_at"`
+	DeviceID         string             `json:"device_id"`
+	GuestCategory    string             `json:"guest_category"`
+	IsAnonymous      bool               `json:"is_anonymous"`
+	ConsumptionCount int32              `json:"consumption_count"`
+	Status           string             `json:"status"`
+}

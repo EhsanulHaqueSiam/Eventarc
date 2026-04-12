@@ -13,7 +13,13 @@ type Querier interface {
 	CountEntryScansByEvent(ctx context.Context, eventID string) (int64, error)
 	GetCheckedInGuestIDs(ctx context.Context, eventID string) ([]string, error)
 	GetEntryScanByGuest(ctx context.Context, arg GetEntryScanByGuestParams) (EntryScan, error)
+	GetFoodConsumptionCounts(ctx context.Context, arg GetFoodConsumptionCountsParams) ([]GetFoodConsumptionCountsRow, error)
+	GetFoodConsumptionHistory(ctx context.Context, arg GetFoodConsumptionHistoryParams) ([]GetFoodConsumptionHistoryRow, error)
+	GetFoodConsumptionPerGuest(ctx context.Context, eventID string) ([]GetFoodConsumptionPerGuestRow, error)
+	GetFoodCountersByCategory(ctx context.Context, eventID string) ([]GetFoodCountersByCategoryRow, error)
+	GetFoodCountersByStall(ctx context.Context, eventID string) ([]GetFoodCountersByStallRow, error)
 	InsertEntryScan(ctx context.Context, arg InsertEntryScanParams) (EntryScan, error)
+	InsertFoodScan(ctx context.Context, arg InsertFoodScanParams) (FoodScan, error)
 	UpsertEventCounter(ctx context.Context, arg UpsertEventCounterParams) error
 }
 
