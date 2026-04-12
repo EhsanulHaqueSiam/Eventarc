@@ -14,6 +14,8 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as EventsIndexRouteImport } from './routes/events/index'
 import { Route as EventsEventIdRouteImport } from './routes/events/$eventId'
+import { Route as EventsEventIdGuestsIndexRouteImport } from './routes/events/$eventId/guests/index'
+import { Route as EventsEventIdGuestsImportRouteImport } from './routes/events/$eventId/guests/import'
 
 const SizingGuideRoute = SizingGuideRouteImport.update({
   id: '/sizing-guide',
@@ -40,34 +42,66 @@ const EventsEventIdRoute = EventsEventIdRouteImport.update({
   path: '/events/$eventId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const EventsEventIdGuestsIndexRoute =
+  EventsEventIdGuestsIndexRouteImport.update({
+    id: '/guests/',
+    path: '/guests/',
+    getParentRoute: () => EventsEventIdRoute,
+  } as any)
+const EventsEventIdGuestsImportRoute =
+  EventsEventIdGuestsImportRouteImport.update({
+    id: '/guests/import',
+    path: '/guests/import',
+    getParentRoute: () => EventsEventIdRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/sizing-guide': typeof SizingGuideRoute
-  '/events/$eventId': typeof EventsEventIdRoute
+  '/events/$eventId': typeof EventsEventIdRouteWithChildren
   '/events/': typeof EventsIndexRoute
+  '/events/$eventId/guests/import': typeof EventsEventIdGuestsImportRoute
+  '/events/$eventId/guests/': typeof EventsEventIdGuestsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/sizing-guide': typeof SizingGuideRoute
-  '/events/$eventId': typeof EventsEventIdRoute
+  '/events/$eventId': typeof EventsEventIdRouteWithChildren
   '/events': typeof EventsIndexRoute
+  '/events/$eventId/guests/import': typeof EventsEventIdGuestsImportRoute
+  '/events/$eventId/guests': typeof EventsEventIdGuestsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/sizing-guide': typeof SizingGuideRoute
-  '/events/$eventId': typeof EventsEventIdRoute
+  '/events/$eventId': typeof EventsEventIdRouteWithChildren
   '/events/': typeof EventsIndexRoute
+  '/events/$eventId/guests/import': typeof EventsEventIdGuestsImportRoute
+  '/events/$eventId/guests/': typeof EventsEventIdGuestsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/login' | '/sizing-guide' | '/events/$eventId' | '/events/'
+  fullPaths:
+    | '/'
+    | '/login'
+    | '/sizing-guide'
+    | '/events/$eventId'
+    | '/events/'
+    | '/events/$eventId/guests/import'
+    | '/events/$eventId/guests/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/login' | '/sizing-guide' | '/events/$eventId' | '/events'
+  to:
+    | '/'
+    | '/login'
+    | '/sizing-guide'
+    | '/events/$eventId'
+    | '/events'
+    | '/events/$eventId/guests/import'
+    | '/events/$eventId/guests'
   id:
     | '__root__'
     | '/'
@@ -75,13 +109,15 @@ export interface FileRouteTypes {
     | '/sizing-guide'
     | '/events/$eventId'
     | '/events/'
+    | '/events/$eventId/guests/import'
+    | '/events/$eventId/guests/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   LoginRoute: typeof LoginRoute
   SizingGuideRoute: typeof SizingGuideRoute
-  EventsEventIdRoute: typeof EventsEventIdRoute
+  EventsEventIdRoute: typeof EventsEventIdRouteWithChildren
   EventsIndexRoute: typeof EventsIndexRoute
 }
 
@@ -122,14 +158,42 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EventsEventIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/events/$eventId/guests/': {
+      id: '/events/$eventId/guests/'
+      path: '/guests'
+      fullPath: '/events/$eventId/guests/'
+      preLoaderRoute: typeof EventsEventIdGuestsIndexRouteImport
+      parentRoute: typeof EventsEventIdRoute
+    }
+    '/events/$eventId/guests/import': {
+      id: '/events/$eventId/guests/import'
+      path: '/guests/import'
+      fullPath: '/events/$eventId/guests/import'
+      preLoaderRoute: typeof EventsEventIdGuestsImportRouteImport
+      parentRoute: typeof EventsEventIdRoute
+    }
   }
 }
+
+interface EventsEventIdRouteChildren {
+  EventsEventIdGuestsImportRoute: typeof EventsEventIdGuestsImportRoute
+  EventsEventIdGuestsIndexRoute: typeof EventsEventIdGuestsIndexRoute
+}
+
+const EventsEventIdRouteChildren: EventsEventIdRouteChildren = {
+  EventsEventIdGuestsImportRoute: EventsEventIdGuestsImportRoute,
+  EventsEventIdGuestsIndexRoute: EventsEventIdGuestsIndexRoute,
+}
+
+const EventsEventIdRouteWithChildren = EventsEventIdRoute._addFileChildren(
+  EventsEventIdRouteChildren,
+)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   LoginRoute: LoginRoute,
   SizingGuideRoute: SizingGuideRoute,
-  EventsEventIdRoute: EventsEventIdRoute,
+  EventsEventIdRoute: EventsEventIdRouteWithChildren,
   EventsIndexRoute: EventsIndexRoute,
 }
 export const routeTree = rootRouteImport
