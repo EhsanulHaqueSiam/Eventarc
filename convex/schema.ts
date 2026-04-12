@@ -109,6 +109,30 @@ export default defineSchema({
       filterFields: ["eventId", "categoryId", "status"],
     }),
 
+  smsDeliveries: defineTable({
+    eventId: v.id("events"),
+    guestId: v.id("guests"),
+    phone: v.string(),
+    status: v.union(
+      v.literal("queued"),
+      v.literal("sending"),
+      v.literal("sent"),
+      v.literal("delivered"),
+      v.literal("failed"),
+    ),
+    providerRequestId: v.optional(v.string()),
+    retryCount: v.number(),
+    lastAttemptAt: v.optional(v.number()),
+    deliveredAt: v.optional(v.number()),
+    failureReason: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_event", ["eventId"])
+    .index("by_guest", ["guestId"])
+    .index("by_event_status", ["eventId", "status"])
+    .index("by_providerRequestId", ["providerRequestId"]),
+
   cardTemplates: defineTable({
     eventId: v.id("events"),
     name: v.string(),
