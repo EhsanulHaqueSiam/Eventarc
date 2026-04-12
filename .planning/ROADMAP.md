@@ -106,7 +106,7 @@ Plans:
 
 Plans:
 - [x] 05-01: TBD
-- [ ] 05-02: TBD
+- [x] 05-02: TBD
 
 ### Phase 6: Vendor Scanning Interface
 **Goal**: Event vendors can scan QR codes using only a web browser on their phone or tablet with zero credentials and instant feedback
