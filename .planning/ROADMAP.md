@@ -140,7 +140,7 @@ Plans:
 
 Plans:
 - [x] 07-01-PLAN.md -- Offline infrastructure: idb IndexedDB service (queue/retrieve/cleanup), network detection hook (navigator.onLine + health ping + debounce), scanner store extensions, offline UI components (OfflineBanner, QueuedScanFlash, QueuedScanResultCard)
-- [ ] 07-02-PLAN.md -- Sync and notifications: reconnection sync orchestrator (sequential processing, partial failure recovery), pending queue UI (PendingBadge, PendingQueuePanel, PendingQueueItem), ConnectionRestoredBanner, RetroactiveRejectionToast (persistent via sonner)
+- [x] 07-02-PLAN.md -- Sync and notifications: reconnection sync orchestrator (sequential processing, partial failure recovery), pending queue UI (PendingBadge, PendingQueuePanel, PendingQueueItem), ConnectionRestoredBanner, RetroactiveRejectionToast (persistent via sonner)
 
 **UI hint**: yes
 
