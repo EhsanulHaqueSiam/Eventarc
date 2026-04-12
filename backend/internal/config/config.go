@@ -20,6 +20,10 @@ type Config struct {
 	// Convex integration
 	ConvexURL             string // URL for Convex HTTP API
 	ConvexDeploymentToken string // Auth token for Convex admin API
+	// SMS provider
+	SMSProviderAPIKey   string // API key for SMS provider
+	SMSProviderSenderID string // Approved sender ID (optional)
+	SMSProviderBaseURL  string // Base URL for SMS API
 }
 
 // Load reads configuration from environment variables with sensible defaults.
@@ -38,6 +42,9 @@ func Load() *Config {
 		ScanTimeout:           getEnv("SCAN_TIMEOUT", "5s"),
 		ConvexURL:             getEnv("CONVEX_URL", ""),
 		ConvexDeploymentToken: getEnv("CONVEX_DEPLOYMENT_TOKEN", ""),
+		SMSProviderAPIKey:    getEnv("SMS_PROVIDER_API_KEY", ""),
+		SMSProviderSenderID:  getEnv("SMS_PROVIDER_SENDER_ID", ""),
+		SMSProviderBaseURL:   getEnv("SMS_PROVIDER_BASE_URL", "https://api.sms.net.bd"),
 	}
 }
 
