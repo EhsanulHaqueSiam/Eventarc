@@ -37,6 +37,7 @@ import { EventConfigForm } from "@/components/events/event-config-form";
 import { CategoriesTab } from "@/components/events/categories-tab";
 import { VendorsTab } from "@/components/events/vendors-tab";
 import { LiveDashboard } from "@/components/dashboard/live-dashboard";
+import { ActiveSessionsTab } from "@/components/sessions/active-sessions-tab";
 import { toast } from "sonner";
 import { useState } from "react";
 
@@ -233,6 +234,9 @@ function EventDetailPage() {
             Guests
           </TabsTrigger>
           {event.status === "live" && (
+            <TabsTrigger value="sessions">Sessions</TabsTrigger>
+          )}
+          {event.status === "live" && (
             <TabsTrigger value="live">Live</TabsTrigger>
           )}
         </TabsList>
@@ -260,6 +264,12 @@ function EventDetailPage() {
         <TabsContent value="guests" className="mt-6">
           <GuestsTab eventId={event._id} eventIdStr={eventId} />
         </TabsContent>
+
+        {event.status === "live" && (
+          <TabsContent value="sessions" className="mt-6">
+            <ActiveSessionsTab eventId={event._id} />
+          </TabsContent>
+        )}
 
         {event.status === "live" && (
           <TabsContent value="live" className="mt-6">
