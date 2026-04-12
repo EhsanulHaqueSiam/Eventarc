@@ -31,7 +31,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { MoreVertical, Calendar, MapPin } from "lucide-react";
+import { MoreVertical, Calendar, MapPin, Users } from "lucide-react";
 import { OverviewTab } from "@/components/events/overview-tab";
 import { EventConfigForm } from "@/components/events/event-config-form";
 import { CategoriesTab } from "@/components/events/categories-tab";
@@ -227,6 +227,10 @@ function EventDetailPage() {
           <TabsTrigger value="configuration">Configuration</TabsTrigger>
           <TabsTrigger value="categories">Categories</TabsTrigger>
           <TabsTrigger value="vendors">Vendors</TabsTrigger>
+          <TabsTrigger value="guests">
+            <Users className="mr-1 size-3.5" />
+            Guests
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="mt-6">
@@ -248,7 +252,44 @@ function EventDetailPage() {
         <TabsContent value="vendors" className="mt-6">
           <VendorsTab eventId={event._id} />
         </TabsContent>
+
+        <TabsContent value="guests" className="mt-6">
+          <GuestsTab eventId={event._id} eventIdStr={eventId} />
+        </TabsContent>
       </Tabs>
+    </div>
+  );
+}
+
+function GuestsTab({ eventId, eventIdStr }: { eventId: Id<"events">; eventIdStr: string }) {
+  const guestCount = useQuery(api.guests.countByEvent, { eventId });
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-lg border bg-card p-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="font-semibold">Guest List</h3>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Import and manage guest list for this event
+            </p>
+            {guestCount !== undefined && (
+              <p className="mt-2 text-2xl font-semibold">
+                {guestCount.toLocaleString()}
+                <span className="ml-1 text-sm font-normal text-muted-foreground">
+                  guests
+                </span>
+              </p>
+            )}
+          </div>
+          <Button asChild>
+            <Link to="/events/$eventId/guests" params={{ eventId: eventIdStr }}>
+              <Users className="mr-2 size-4" />
+              Manage Guests
+            </Link>
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }
