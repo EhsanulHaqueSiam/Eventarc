@@ -109,6 +109,19 @@ export default defineSchema({
       filterFields: ["eventId", "categoryId", "status"],
     }),
 
+  foodRules: defineTable({
+    eventId: v.id("events"),
+    guestCategoryId: v.id("guestCategories"),
+    foodCategoryId: v.id("vendorCategories"), // food categories are vendorCategories under "food" vendorType
+    limit: v.number(), // -1 for unlimited, 0+ for specific limit
+  })
+    .index("by_event", ["eventId"])
+    .index("by_event_guest_food", [
+      "eventId",
+      "guestCategoryId",
+      "foodCategoryId",
+    ]),
+
   smsDeliveries: defineTable({
     eventId: v.id("events"),
     guestId: v.id("guests"),
