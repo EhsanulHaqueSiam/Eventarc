@@ -15,7 +15,8 @@ export type ScanOutcome =
   | "served"
   | "denied"
   | "duplicate_entry"
-  | "duplicate_food";
+  | "duplicate_food"
+  | "network_error";
 
 export interface ScanResult {
   qrPayload: string;
@@ -170,12 +171,13 @@ export const useScannerStore = create<ScanStore>((set, get) => ({
         : parseFoodResponse(data);
 
       set({ state: "flash", serverResponse });
-    } catch {
+    } catch (error) {
+      console.error("Scan confirm failed:", error);
       set({
         state: "flash",
         serverResponse: {
-          outcome: "denied",
-          reason: "Network error. Please check your connection.",
+          outcome: "network_error",
+          reason: "Could not reach server. The scan was not confirmed — please retry.",
         },
       });
     }

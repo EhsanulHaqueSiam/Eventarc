@@ -37,6 +37,11 @@ const overlayConfig: Record<
     text: "ALREADY SERVED",
     textColor: "oklch(0.25 0.05 85)",
   },
+  network_error: {
+    bg: "oklch(0.75 0.15 55 / 90%)",
+    text: "NO CONNECTION",
+    textColor: "oklch(0.25 0.1 55)",
+  },
 };
 
 export function ScanFlashOverlay({

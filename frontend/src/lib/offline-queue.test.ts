@@ -189,13 +189,12 @@ describe("offline-queue", () => {
       .mockReturnValueOnce(now + 200)
       .mockReturnValueOnce(now + 300);
 
-    await queueScan(baseScanParams);
+    const key1 = await queueScan(baseScanParams);
     await queueScan({ ...baseScanParams, guest_name: "Fatima Begum" });
     const key3 = await queueScan({ ...baseScanParams, guest_name: "Rafiq Uddin" });
 
     // Mark one as synced, one as rejected
-    const allBefore = await getAllScans();
-    await updateScanStatus(allBefore[allBefore.length - 1].idempotency_key, "synced");
+    await updateScanStatus(key1, "synced");
     await updateScanStatus(key3, "rejected", "already checked in");
 
     const allScans = await getAllScans();

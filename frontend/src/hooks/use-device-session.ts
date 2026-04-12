@@ -19,18 +19,27 @@ interface CreateSessionParams {
   stallName: string;
 }
 
-async function validateToken(
-  token: string,
-): Promise<Omit<SessionInfo, "token" | "stallName"> | null> {
+type ValidationResult =
+  | { status: "valid"; info: Omit<SessionInfo, "token" | "stallName"> }
+  | { status: "invalid" }
+  | { status: "network_error" };
+
+async function validateToken(token: string): Promise<ValidationResult> {
   try {
     const API_URL = import.meta.env.VITE_API_URL || "";
     const res = await fetch(`${API_URL}/api/v1/session`, {
       headers: { Authorization: `Bearer ${token}` },
     });
-    if (!res.ok) return null;
-    return await res.json();
+    if (res.ok) {
+      return { status: "valid", info: await res.json() };
+    }
+    if (res.status === 401 || res.status === 403) {
+      return { status: "invalid" };
+    }
+    // Server error — don't assume token is invalid
+    return { status: "network_error" };
   } catch {
-    return null;
+    return { status: "network_error" };
   }
 }
 
@@ -40,29 +49,41 @@ export function useDeviceSession() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRevoked, setIsRevoked] = useState(false);
 
-  // On mount: check localStorage for existing token, validate with backend
+  // On mount: check localStorage for existing session, validate token with backend
   useEffect(() => {
-    const stored = localStorage.getItem(SESSION_KEY);
-    if (!stored) {
+    const storedJson = localStorage.getItem(SESSION_KEY);
+    if (!storedJson) {
       setIsLoading(false);
       return;
     }
 
-    validateToken(stored).then((info) => {
-      if (info) {
-        setToken(stored);
+    // Support both legacy (plain token string) and new (JSON session) formats
+    let storedToken: string;
+    let storedStallName = "";
+    try {
+      const parsed = JSON.parse(storedJson) as SessionInfo;
+      storedToken = parsed.token;
+      storedStallName = parsed.stallName ?? "";
+    } catch {
+      storedToken = storedJson;
+    }
+
+    validateToken(storedToken).then((result) => {
+      if (result.status === "valid") {
+        setToken(storedToken);
         setSession({
-          token: stored,
-          stallId: info.stallId,
-          eventId: info.eventId,
-          vendorCategoryId: info.vendorCategoryId,
-          vendorTypeId: info.vendorTypeId,
-          stallName: "", // stallName not returned by validation endpoint
+          token: storedToken,
+          stallId: result.info.stallId,
+          eventId: result.info.eventId,
+          vendorCategoryId: result.info.vendorCategoryId,
+          vendorTypeId: result.info.vendorTypeId,
+          stallName: storedStallName,
         });
-      } else {
+      } else if (result.status === "invalid") {
         localStorage.removeItem(SESSION_KEY);
         setIsRevoked(true);
       }
+      // network_error: keep token in storage, don't mark as revoked — retry on next load
       setIsLoading(false);
     });
   }, []);
@@ -78,12 +99,14 @@ export function useDeviceSession() {
         });
         if (!res.ok) return false;
         const { token: newToken } = await res.json();
-        localStorage.setItem(SESSION_KEY, newToken);
+        const newSession: SessionInfo = { token: newToken, ...params };
+        localStorage.setItem(SESSION_KEY, JSON.stringify(newSession));
         setToken(newToken);
-        setSession({ token: newToken, ...params });
+        setSession(newSession);
         setIsRevoked(false);
         return true;
-      } catch {
+      } catch (error) {
+        console.error("Failed to create session:", error);
         return false;
       }
     },

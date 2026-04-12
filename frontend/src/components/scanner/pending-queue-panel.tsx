@@ -3,7 +3,7 @@ import { X } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { getAllScans, type OfflineScan } from "@/lib/offline-queue";
 import { useOfflineScannerStore } from "@/stores/scanner-store";
-import { PendingQueueItem } from "./PendingQueueItem";
+import { PendingQueueItem } from "./pending-queue-item";
 
 interface PendingQueuePanelProps {
   open: boolean;

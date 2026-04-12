@@ -47,8 +47,10 @@ export function CreateEventDialog() {
       setOpen(false);
       resetForm();
       navigate({ to: "/events/$eventId", params: { eventId } });
-    } catch {
-      toast.error("Failed to create event");
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to create event";
+      toast.error(message);
     } finally {
       setIsSubmitting(false);
     }
@@ -117,9 +119,9 @@ export function CreateEventDialog() {
           <div>
             <h4 className="mb-3 text-sm font-medium">QR Code Strategy</h4>
             <ToggleGroup
-              type="single"
-              value={qrStrategy}
-              onValueChange={(v) => v && setQrStrategy(v as "unified" | "separate")}
+              multiple={false}
+              value={[qrStrategy]}
+              onValueChange={([val]) => val && setQrStrategy(val as "unified" | "separate")}
               className="justify-start"
             >
               <ToggleGroupItem value="unified" className="px-4">
@@ -139,9 +141,9 @@ export function CreateEventDialog() {
           <div>
             <h4 className="mb-3 text-sm font-medium">Food QR Mode</h4>
             <ToggleGroup
-              type="single"
-              value={foodQrMode}
-              onValueChange={(v) => v && setFoodQrMode(v as "guestLinked" | "anonymous")}
+              multiple={false}
+              value={[foodQrMode]}
+              onValueChange={([val]) => val && setFoodQrMode(val as "guestLinked" | "anonymous")}
               className="justify-start"
             >
               <ToggleGroupItem value="guestLinked" className="px-4">
@@ -161,9 +163,9 @@ export function CreateEventDialog() {
           <div>
             <h4 className="mb-3 text-sm font-medium">Food QR Timing</h4>
             <ToggleGroup
-              type="single"
-              value={foodQrTiming}
-              onValueChange={(v) => v && setFoodQrTiming(v as "preSent" | "postEntry")}
+              multiple={false}
+              value={[foodQrTiming]}
+              onValueChange={([val]) => val && setFoodQrTiming(val as "preSent" | "postEntry")}
               className="justify-start"
             >
               <ToggleGroupItem value="preSent" className="px-4">

@@ -79,8 +79,8 @@ export async function syncOfflineScans(
         onNetworkError();
         break;
       }
-    } catch {
-      // Network error during sync -- stop processing
+    } catch (error) {
+      console.error(`Offline sync failed for scan ${scan.idempotency_key}:`, error);
       onNetworkError();
       break;
     }
@@ -124,8 +124,24 @@ export function useOfflineSync() {
         syncingRef.current = true;
         setNetworkStatus("syncing");
 
+        const storedSession = localStorage.getItem("eventarc_scanner_session");
+        let sessionToken = "";
+        if (storedSession) {
+          try {
+            sessionToken = JSON.parse(storedSession).token ?? "";
+          } catch {
+            sessionToken = storedSession;
+          }
+        }
+        if (!sessionToken) {
+          console.error("Cannot sync offline scans: no session token available");
+          setNetworkStatus("offline");
+          syncingRef.current = false;
+          return;
+        }
+
         await syncOfflineScans(
-          () => "", // Session token -- in production, get from device session store
+          () => sessionToken,
           () => {
             // onSynced: state already updated in IndexedDB
           },

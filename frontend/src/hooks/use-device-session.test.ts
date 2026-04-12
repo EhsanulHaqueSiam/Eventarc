@@ -80,7 +80,7 @@ describe("useDeviceSession", () => {
     );
   });
 
-  it("clears token from localStorage when validation fails", async () => {
+  it("clears token and sets isRevoked when validation returns 401", async () => {
     localStorageMock.setItem("eventarc_scanner_session", "invalid-token");
 
     mockFetch.mockResolvedValueOnce({
@@ -95,9 +95,96 @@ describe("useDeviceSession", () => {
     });
 
     expect(result.current.token).toBeNull();
+    expect(result.current.isRevoked).toBe(true);
     expect(localStorageMock.removeItem).toHaveBeenCalledWith(
       "eventarc_scanner_session",
     );
+  });
+
+  it("keeps token on network error — does not mark as revoked", async () => {
+    localStorageMock.setItem("eventarc_scanner_session", "valid-token");
+
+    mockFetch.mockRejectedValueOnce(new Error("Failed to fetch"));
+
+    const { result } = renderHook(() => useDeviceSession());
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    // Token should NOT be cleared on network error
+    expect(result.current.isRevoked).toBe(false);
+    expect(localStorageMock.removeItem).not.toHaveBeenCalled();
+  });
+
+  it("keeps token when server returns 500", async () => {
+    localStorageMock.setItem("eventarc_scanner_session", "valid-token");
+
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 500,
+    });
+
+    const { result } = renderHook(() => useDeviceSession());
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    expect(result.current.isRevoked).toBe(false);
+    expect(localStorageMock.removeItem).not.toHaveBeenCalled();
+  });
+
+  it("createSession returns false on server error", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 500,
+    });
+
+    const { result } = renderHook(() => useDeviceSession());
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    let success: boolean = true;
+    await act(async () => {
+      success = await result.current.createSession({
+        stallId: "stall-1",
+        eventId: "event-1",
+        vendorCategoryId: "cat-1",
+        vendorTypeId: "type-1",
+        stallName: "Stall 1",
+      });
+    });
+
+    expect(success).toBe(false);
+    expect(result.current.token).toBeNull();
+    expect(result.current.session).toBeNull();
+  });
+
+  it("createSession returns false on network exception", async () => {
+    mockFetch.mockRejectedValueOnce(new Error("Network timeout"));
+
+    const { result } = renderHook(() => useDeviceSession());
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    let success: boolean = true;
+    await act(async () => {
+      success = await result.current.createSession({
+        stallId: "stall-1",
+        eventId: "event-1",
+        vendorCategoryId: "cat-1",
+        vendorTypeId: "type-1",
+        stallName: "Stall 1",
+      });
+    });
+
+    expect(success).toBe(false);
+    expect(result.current.token).toBeNull();
   });
 
   it("createSession POSTs to /api/v1/session and stores token", async () => {
@@ -136,7 +223,7 @@ describe("useDeviceSession", () => {
     );
     expect(localStorageMock.setItem).toHaveBeenCalledWith(
       "eventarc_scanner_session",
-      "newtoken1234567890abcdef1234567890abcdef1234567890abcdef12345678",
+      expect.stringContaining("newtoken1234567890abcdef1234567890abcdef1234567890abcdef12345678"),
     );
     expect(result.current.token).toBe(
       "newtoken1234567890abcdef1234567890abcdef1234567890abcdef12345678",

@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 
 interface CameraViewfinderProps {
   onQrDetected: (qrPayload: string) => void;
+  onError?: (message: string) => void;
   isActive: boolean;
 }
 
@@ -11,6 +12,7 @@ const VIEWFINDER_ID = "scanner-viewfinder";
 
 export function CameraViewfinder({
   onQrDetected,
+  onError,
   isActive,
 }: CameraViewfinderProps) {
   const scannerRef = useRef<Html5Qrcode | null>(null);
@@ -49,6 +51,7 @@ export function CameraViewfinder({
         isRunningRef.current = true;
       } catch (err) {
         console.error("Failed to start QR scanner:", err);
+        onError?.(err instanceof Error ? err.message : "Camera access failed. Please check permissions.");
       }
     };
 
@@ -56,8 +59,8 @@ export function CameraViewfinder({
 
     return () => {
       if (isRunningRef.current) {
-        scanner.stop().catch(() => {
-          // Camera already released
+        scanner.stop().catch((err) => {
+          console.warn("Scanner stop failed (camera may already be released):", err);
         });
         isRunningRef.current = false;
       }
@@ -74,8 +77,8 @@ export function CameraViewfinder({
     } else {
       try {
         scanner.pause();
-      } catch {
-        // Scanner may not be in a pauseable state
+      } catch (err) {
+        console.warn("Scanner pause failed:", err);
       }
     }
   }, [isActive]);

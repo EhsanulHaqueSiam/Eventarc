@@ -24,6 +24,9 @@ function RootLayout() {
     if (user === null && !isLoginPage && !isScannerPage) {
       navigate({ to: "/login" });
     }
+    if (user && isLoginPage) {
+      navigate({ to: "/events" });
+    }
   }, [user, isLoginPage, isScannerPage, navigate]);
 
   // On login page or scanner page, render without admin shell
@@ -35,8 +38,8 @@ function RootLayout() {
     );
   }
 
-  // Loading state
-  if (user === undefined) {
+  // Loading or unauthenticated — don't render the app shell
+  if (user === undefined || user === null) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <p className="text-muted-foreground">Loading...</p>

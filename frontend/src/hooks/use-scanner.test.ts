@@ -129,8 +129,8 @@ describe("useScannerStore", () => {
 
     const state = useScannerStore.getState();
     expect(state.state).toBe("flash");
-    expect(state.serverResponse?.outcome).toBe("denied");
-    expect(state.serverResponse?.reason).toContain("Network error");
+    expect(state.serverResponse?.outcome).toBe("network_error");
+    expect(state.serverResponse?.reason).toContain("not confirmed");
   });
 
   it("onFlashComplete transitions from 'flash' to 'ready'", async () => {

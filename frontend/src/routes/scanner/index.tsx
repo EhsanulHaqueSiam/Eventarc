@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import {
@@ -10,6 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogClose,
 } from "@/components/ui/dialog";
 import { ScannerSetup } from "@/components/scanner/scanner-setup";
 import { CameraViewfinder } from "@/components/scanner/camera-viewfinder";
@@ -99,6 +100,7 @@ function ActiveScanner({
           break;
         case "duplicate_entry":
         case "duplicate_food":
+        case "network_error":
           playDuplicate();
           break;
       }
@@ -124,7 +126,7 @@ function ActiveScanner({
         <span className="truncate text-sm font-medium text-white">
           {session.stallName || "Scanning Station"}
         </span>
-        <SessionStatus isConnected={true} />
+        <SessionStatus isConnected={navigator.onLine} />
       </div>
 
       {/* Camera viewfinder */}
@@ -153,9 +155,9 @@ function ActiveScanner({
               </DialogDescription>
             </DialogHeader>
             <DialogFooter>
-              <Button variant="secondary" onClick={() => {}}>
-                Cancel
-              </Button>
+              <DialogClose asChild>
+                <Button variant="secondary">Cancel</Button>
+              </DialogClose>
               <Button onClick={onChangeStation}>Change Station</Button>
             </DialogFooter>
           </DialogContent>

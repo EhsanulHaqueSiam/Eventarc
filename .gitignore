@@ -4,6 +4,9 @@
 
 # Go
 backend/tmp/
+backend/server
+backend/worker
+backend/seed
 
 # Node
 node_modules/

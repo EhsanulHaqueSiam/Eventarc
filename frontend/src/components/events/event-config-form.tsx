@@ -79,9 +79,9 @@ export function EventConfigForm({ eventId, status, config }: EventConfigFormProp
         </CardHeader>
         <CardContent>
           <ToggleGroup
-            type="single"
-            value={qrStrategy}
-            onValueChange={(v) => !isLocked && v && setQrStrategy(v as "unified" | "separate")}
+            multiple={false}
+            value={[qrStrategy]}
+            onValueChange={([val]) => !isLocked && val && setQrStrategy(val as "unified" | "separate")}
             disabled={isLocked}
             className="justify-start"
           >
@@ -106,9 +106,9 @@ export function EventConfigForm({ eventId, status, config }: EventConfigFormProp
         </CardHeader>
         <CardContent>
           <ToggleGroup
-            type="single"
-            value={foodQrMode}
-            onValueChange={(v) => !isLocked && v && setFoodQrMode(v as "guestLinked" | "anonymous")}
+            multiple={false}
+            value={[foodQrMode]}
+            onValueChange={([val]) => !isLocked && val && setFoodQrMode(val as "guestLinked" | "anonymous")}
             disabled={isLocked}
             className="justify-start"
           >
@@ -133,9 +133,9 @@ export function EventConfigForm({ eventId, status, config }: EventConfigFormProp
         </CardHeader>
         <CardContent>
           <ToggleGroup
-            type="single"
-            value={foodQrTiming}
-            onValueChange={(v) => !isLocked && v && setFoodQrTiming(v as "preSent" | "postEntry")}
+            multiple={false}
+            value={[foodQrTiming]}
+            onValueChange={([val]) => !isLocked && val && setFoodQrTiming(val as "preSent" | "postEntry")}
             disabled={isLocked}
             className="justify-start"
           >

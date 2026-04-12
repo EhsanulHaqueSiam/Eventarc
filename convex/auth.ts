@@ -4,6 +4,7 @@ import { components } from "./_generated/api";
 import { DataModel } from "./_generated/dataModel";
 import { query } from "./_generated/server";
 import { betterAuth } from "better-auth/minimal";
+import { ConvexError } from "convex/values";
 import authConfig from "./auth.config";
 
 const siteUrl = process.env.SITE_URL ?? "http://localhost:5173";
@@ -18,6 +19,9 @@ export const createAuth = (ctx: GenericCtx<DataModel>) => {
       enabled: true,
       requireEmailVerification: false,
     },
+    advanced: {
+      useSecureCookies: process.env.NODE_ENV !== "development",
+    },
     plugins: [
       crossDomain({ siteUrl }),
       convex({ authConfig }),
@@ -28,6 +32,13 @@ export const createAuth = (ctx: GenericCtx<DataModel>) => {
 export const getCurrentUser = query({
   args: {},
   handler: async (ctx) => {
-    return authComponent.getAuthUser(ctx);
+    try {
+      return await authComponent.getAuthUser(ctx);
+    } catch (e) {
+      if (e instanceof ConvexError && e.data === "Unauthenticated") {
+        return null;
+      }
+      throw e;
+    }
   },
 });

@@ -74,45 +74,38 @@ export function useSSE(options: UseSSEOptions): UseSSEReturn {
       }
     };
 
-    es.addEventListener("snapshot", (e: MessageEvent) => {
+    const handleSSEEvent = (
+      eventType: string,
+      callback: ((data: unknown) => void) | undefined,
+      e: MessageEvent,
+    ) => {
+      let data: unknown;
       try {
-        const data: unknown = JSON.parse(e.data as string);
-        callbacksRef.current.onSnapshot?.(data);
-        setLastEventTime(new Date());
-      } catch {
-        /* ignore parse errors */
+        data = JSON.parse(e.data as string);
+      } catch (parseErr) {
+        console.warn(`SSE ${eventType}: failed to parse event data:`, parseErr);
+        return;
       }
-    });
+      try {
+        callback?.(data);
+        setLastEventTime(new Date());
+      } catch (callbackErr) {
+        console.error(`SSE ${eventType} callback error:`, callbackErr);
+      }
+    };
 
-    es.addEventListener("counters", (e: MessageEvent) => {
-      try {
-        const data: unknown = JSON.parse(e.data as string);
-        callbacksRef.current.onCounters?.(data);
-        setLastEventTime(new Date());
-      } catch {
-        /* ignore parse errors */
-      }
-    });
-
-    es.addEventListener("stall_activity", (e: MessageEvent) => {
-      try {
-        const data: unknown = JSON.parse(e.data as string);
-        callbacksRef.current.onStallActivity?.(data);
-        setLastEventTime(new Date());
-      } catch {
-        /* ignore parse errors */
-      }
-    });
-
-    es.addEventListener("alert", (e: MessageEvent) => {
-      try {
-        const data: unknown = JSON.parse(e.data as string);
-        callbacksRef.current.onAlert?.(data);
-        setLastEventTime(new Date());
-      } catch {
-        /* ignore parse errors */
-      }
-    });
+    es.addEventListener("snapshot", (e: MessageEvent) =>
+      handleSSEEvent("snapshot", callbacksRef.current.onSnapshot, e),
+    );
+    es.addEventListener("counters", (e: MessageEvent) =>
+      handleSSEEvent("counters", callbacksRef.current.onCounters, e),
+    );
+    es.addEventListener("stall_activity", (e: MessageEvent) =>
+      handleSSEEvent("stall_activity", callbacksRef.current.onStallActivity, e),
+    );
+    es.addEventListener("alert", (e: MessageEvent) =>
+      handleSSEEvent("alert", callbacksRef.current.onAlert, e),
+    );
 
     return () => {
       es.close();
