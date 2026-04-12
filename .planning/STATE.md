@@ -18,16 +18,16 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-04-11)
+See: .planning/PROJECT.md (updated 2026-04-12)
 
 **Core value:** QR-based event operations (entry + food) must be accurate at scale -- no false positives, no false negatives, no race conditions, even with 10K concurrent scans.
-**Current focus:** Phase 02 — guest-management
+**Current focus:** Phase 03 — qr-code-generation-pipeline
 
 ## Current Position
 
 Phase: 03
 Plan: Not started
-Status: Executing Phase 02
+Status: Ready to execute Phase 03
 Last activity: 2026-04-12
 
 Progress: [█░░░░░░░░░] 10%
@@ -63,6 +63,9 @@ Recent decisions affecting current work:
 - [Roadmap]: Go backend chosen over Rust (I/O-bound workload, research HIGH confidence)
 - [Roadmap]: Scan processing split into two phases (core + food rules) to isolate highest-risk work
 - [Roadmap]: Offline resilience separated from vendor scanning for independent delivery and testing
+- [Phase 2]: Two Convex search indexes (search_name, search_phone) — one search field per index limitation
+- [Phase 2]: 500-row batch size for imports — balances Convex transaction limits and progress granularity
+- [Phase 2]: Phone normalized to 01XXXXXXXXX before storage — ensures duplicate detection across formats
 
 ### Pending Todos
 
@@ -78,7 +81,7 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-04-11T19:59:42.594Z
-Stopped at: Phase 7 planning complete
-Resume file: .planning/phases/07-offline-resilience/07-01-PLAN.md
-Resume context: Plan 03-01 (Wave 1) fully executed -- QR payload, image generation, R2 client all implemented and tested (27 tests passing). Plan 03-02 (Wave 2) is next: asynq worker binary, HTTP API endpoints, Convex schema extensions, Docker Compose worker service. Run `/gsd-execute-phase 3` to continue.
+Last session: 2026-04-12
+Stopped at: Phase 2 complete, ready to execute Phase 3
+Resume file: None
+Resume context: Phase 02 (guest-management) fully executed -- both plans complete, verification passed, all 5 GUST requirements met. Phase 03 (qr-code-generation-pipeline) has Plan 01 already complete (QR payload, image generation, R2 client). Plan 03-02 (Wave 2) is next: asynq worker binary, HTTP API endpoints, Convex schema extensions, Docker Compose worker service. Run `/gsd-execute-phase 3` to continue.
