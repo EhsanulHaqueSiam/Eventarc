@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Phase 8 complete, ready to execute Phase 9
-last_updated: "2026-04-12T11:50:00.000Z"
-last_activity: 2026-04-12 -- Phase 08 execution complete, code review clean
+stopped_at: Phase 9 complete, ready to execute Phase 10
+last_updated: "2026-04-12T09:46:00.000Z"
+last_activity: 2026-04-12 -- Phase 09 execution complete
 progress:
   total_phases: 10
-  completed_phases: 5
+  completed_phases: 6
   total_plans: 23
-  completed_plans: 14
-  percent: 61
+  completed_plans: 17
+  percent: 74
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-12)
 
 **Core value:** QR-based event operations (entry + food) must be accurate at scale -- no false positives, no false negatives, no race conditions, even with 10K concurrent scans.
-**Current focus:** Phase 09 — real-time-admin-dashboard
+**Current focus:** Phase 10 — pre-launch-hardening
 
 ## Current Position
 
-Phase: 08 (invitation-card-sms-pipeline) — COMPLETE
-Plan: 3 of 3
-Status: Ready to execute Phase 09
-Last activity: 2026-04-12 -- Phase 08 execution complete, code review clean
+Phase: 09 (real-time-admin-dashboard) — COMPLETE
+Plan: 2 of 2
+Status: Phase 09 complete, ready for Phase 10
+Last activity: 2026-04-12 -- Phase 09 execution complete
 
-Progress: [██████░░░░] 61%
+Progress: [███████░░░] 74%
 
 ## Performance Metrics
 
@@ -48,6 +48,7 @@ Progress: [██████░░░░] 61%
 | 03 | 2 | - | - |
 | 04 | 3 | - | - |
 | 08 | 3 | - | - |
+| 09 | 2 | - | - |
 
 **Recent Trend:**
 
@@ -81,6 +82,10 @@ Recent decisions affecting current work:
 - [Phase 8]: SMS.NET.BD as initial provider, abstracted behind SMSProvider interface for swapability
 - [Phase 8]: SMS batch size 100, rate limit 5 batches/sec, exponential backoff retry max 5 times
 - [Phase 8]: Insufficient balance (error 416) halts batch immediately via asynq.SkipRetry
+- [Phase 9]: SSE broker cleanup removes channel from map but does NOT close it — prevents send-on-closed-channel race
+- [Phase 9]: useSSE hook uses stable callback refs to avoid EventSource recreation on callback changes
+- [Phase 9]: Alert feed capped at 50 items, disconnected status after 3+ consecutive errors
+- [Phase 9]: API_BASE configurable via VITE_GO_API_URL env variable, defaults to localhost:8080
 
 ### Pending Todos
 
@@ -97,6 +102,6 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-04-12
-Stopped at: Phase 8 complete, ready to execute Phase 9
+Stopped at: Phase 9 complete, ready to execute Phase 10
 Resume file: None
-Resume context: Phase 08 (invitation-card-sms-pipeline) fully executed -- all 3 plans complete across 2 waves, code review clean. Wave 1: Go image compositor (disintegration/imaging, CatmullRom), R2 Download extension, card compositing HTTP API + asynq tasks, Convex cardTemplates table + CRUD, Fabric.js card editor with drag-drop QR positioning, template sidebar, compositing progress polling, SMS dashboard UI. Wave 2: SMSProvider interface + SMS.NET.BD implementation (httptest-verified), asynq SMS worker (batch 100, rate 5/sec, exp backoff max 5, halt on insufficient balance), SMS HTTP handlers, Convex smsDeliveries table. Run `/gsd-execute-phase 9` to continue.
+Resume context: Phase 09 (real-time-admin-dashboard) fully executed -- all 2 plans complete across 2 waves. Wave 1: Go SSE backend with per-event broker, Redis Pub/Sub subscription, snapshot-then-delta streaming, heartbeat, 22 tests pass with -race (plan 09-01). Wave 2: Frontend useSSE hook with auto-reconnect (11 vitest tests), 5 dashboard sub-components (MetricCard, FoodCategoryRow, StallActivityRow, AlertFeedItem, ConnectionStatus), LiveDashboard container, "Live" tab on event detail page visible only when event is live (plan 09-02). Run `/gsd-execute-phase 10` to continue.

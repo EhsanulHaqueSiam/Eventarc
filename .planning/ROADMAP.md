@@ -105,7 +105,7 @@ Plans:
 **Plans**: TBD
 
 Plans:
-- [ ] 05-01: TBD
+- [x] 05-01: TBD
 - [ ] 05-02: TBD
 
 ### Phase 6: Vendor Scanning Interface
@@ -121,7 +121,7 @@ Plans:
 **Plans**: TBD
 
 Plans:
-- [ ] 06-01: TBD
+- [x] 06-01: TBD
 - [ ] 06-02: TBD
 
 **UI hint**: yes
@@ -176,8 +176,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 09-01-PLAN.md -- Go SSE backend: connection broker, live endpoint (GET /api/v1/events/{eventId}/live), Redis Pub/Sub subscription, snapshot-then-delta streaming, heartbeat, alert events, unit/integration tests
-- [ ] 09-02-PLAN.md -- Frontend dashboard: useSSE hook with auto-reconnect, MetricCard, FoodCategoryRow, StallActivityRow, AlertFeedItem, ConnectionStatus components, LiveDashboard container, "Live" tab on event detail page (visible only when event is live)
+- [x] 09-01-PLAN.md -- Go SSE backend: connection broker, live endpoint (GET /api/v1/events/{eventId}/live), Redis Pub/Sub subscription, snapshot-then-delta streaming, heartbeat, alert events, unit/integration tests
+- [x] 09-02-PLAN.md -- Frontend dashboard: useSSE hook with auto-reconnect, MetricCard, FoodCategoryRow, StallActivityRow, AlertFeedItem, ConnectionStatus components, LiveDashboard container, "Live" tab on event detail page (visible only when event is live)
 
 **UI hint**: yes
 
