@@ -19,6 +19,7 @@ import (
 	"github.com/ehsanul-haque-siam/eventarc/internal/handler"
 	"github.com/ehsanul-haque-siam/eventarc/internal/middleware"
 	"github.com/ehsanul-haque-siam/eventarc/internal/scan"
+	"github.com/ehsanul-haque-siam/eventarc/internal/sse"
 )
 
 func main() {
@@ -118,6 +119,11 @@ func main() {
 		r.Post("/send", smsHandler.HandleSendSMS)
 		r.Get("/progress", smsHandler.HandleSMSProgress)
 	})
+
+	// Live dashboard SSE endpoint (admin auth via cookie — Phase 1 Better Auth)
+	// TODO(phase-10): Add admin session validation middleware (Better Auth cookie check)
+	sseBroker := sse.NewSSEBroker()
+	r.Get("/api/v1/events/{eventId}/live", sse.NewLiveHandler(sseBroker, redisClient))
 
 	// Create server
 	srv := &http.Server{
