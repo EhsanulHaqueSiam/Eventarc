@@ -1,15 +1,26 @@
-# Stage 1: Build
-FROM golang:1.24-alpine AS builder
+# Build stage
+FROM golang:1.25-alpine AS builder
 WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux go build -o /eventarc ./cmd/server
 
-# Stage 2: Run
-FROM alpine:3.21
+# Build server binary
+RUN CGO_ENABLED=0 GOOS=linux go build -o /server ./cmd/server
+
+# Build worker binary
+RUN CGO_ENABLED=0 GOOS=linux go build -o /worker ./cmd/worker
+
+# Server runtime
+FROM alpine:3.21 AS server
 RUN apk add --no-cache ca-certificates tzdata
-COPY --from=builder /eventarc /eventarc
-COPY migrations/ /migrations/
+COPY --from=builder /server /server
+COPY --from=builder /app/migrations/ /migrations/
 EXPOSE 8080
-ENTRYPOINT ["/eventarc"]
+CMD ["/server"]
+
+# Worker runtime
+FROM alpine:3.21 AS worker
+RUN apk add --no-cache ca-certificates tzdata
+COPY --from=builder /worker /worker
+CMD ["/worker"]

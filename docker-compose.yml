@@ -43,5 +43,24 @@ services:
       timeout: 3s
       retries: 5
 
+  worker:
+    build:
+      context: ./backend
+      target: worker
+    environment:
+      - ENV=${ENV:-development}
+      - REDIS_URL=redis://redis:6379
+      - DATABASE_URL=postgres://eventarc:${PG_PASSWORD:-dev_password}@pgbouncer:6432/eventarc?sslmode=disable
+      - HMAC_SECRET=${HMAC_SECRET:-dev-hmac-secret-change-in-production}
+      - R2_ACCOUNT_ID=${R2_ACCOUNT_ID:-}
+      - R2_ACCESS_KEY_ID=${R2_ACCESS_KEY_ID:-}
+      - R2_SECRET_ACCESS_KEY=${R2_SECRET_ACCESS_KEY:-}
+      - R2_BUCKET_NAME=${R2_BUCKET_NAME:-eventarc-qr}
+      - R2_PUBLIC_URL=${R2_PUBLIC_URL:-}
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
 volumes:
   pgdata:
