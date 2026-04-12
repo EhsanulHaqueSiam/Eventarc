@@ -11,6 +11,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	chimw "github.com/go-chi/chi/v5/middleware"
+	"github.com/hibiken/asynq"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 
@@ -41,6 +42,10 @@ func main() {
 	}
 	redisClient := redis.NewClient(redisOpts)
 
+	// Create asynq client for task enqueue
+	asynqClient := asynq.NewClient(asynq.RedisClientOpt{Addr: parseRedisAddr(cfg.RedisURL)})
+	defer asynqClient.Close()
+
 	// Connect to PostgreSQL via PgBouncer
 	pgPool, err := pgxpool.New(ctx, cfg.DatabaseURL)
 	if err != nil {
@@ -66,6 +71,14 @@ func main() {
 	r.Route("/api/v1/sync", func(r chi.Router) {
 		r.Use(middleware.HMACAuth(cfg.HMACSecret))
 		r.Post("/event", handler.HandleSyncEvent)
+	})
+
+	// QR generation endpoints (HMAC-protected)
+	qrHandler := handler.NewQRHandler(asynqClient, redisClient, slog.Default())
+	r.Route("/api/v1/qr", func(r chi.Router) {
+		r.Use(middleware.HMACAuth(cfg.HMACSecret))
+		r.Post("/generate", qrHandler.HandleTriggerGeneration)
+		r.Get("/progress/{eventId}", qrHandler.HandleGetProgress)
 	})
 
 	// Create server
@@ -97,4 +110,13 @@ func main() {
 	}
 
 	slog.Info("server stopped")
+}
+
+// parseRedisAddr extracts the host:port from a Redis URL string.
+func parseRedisAddr(redisURL string) string {
+	opts, err := redis.ParseURL(redisURL)
+	if err != nil {
+		return "localhost:6379"
+	}
+	return opts.Addr
 }
