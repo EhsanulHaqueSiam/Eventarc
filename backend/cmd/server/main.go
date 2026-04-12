@@ -18,6 +18,7 @@ import (
 	"github.com/ehsanul-haque-siam/eventarc/internal/config"
 	"github.com/ehsanul-haque-siam/eventarc/internal/handler"
 	"github.com/ehsanul-haque-siam/eventarc/internal/middleware"
+	"github.com/ehsanul-haque-siam/eventarc/internal/scan"
 )
 
 func main() {
@@ -71,6 +72,12 @@ func main() {
 	r.Route("/api/v1/sync", func(r chi.Router) {
 		r.Use(middleware.HMACAuth(cfg.HMACSecret))
 		r.Post("/event", handler.HandleSyncEvent)
+	})
+
+	// Scan processing (unauthenticated — QR payload HMAC is the auth mechanism)
+	scanSvc := scan.NewService(redisClient, pgPool, []byte(cfg.HMACSecret))
+	r.Route("/api/v1/scan", func(r chi.Router) {
+		r.Post("/entry", scan.HandleEntryScan(scanSvc))
 	})
 
 	// QR generation endpoints (HMAC-protected)

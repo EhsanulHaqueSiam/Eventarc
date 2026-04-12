@@ -15,6 +15,8 @@ type Config struct {
 	R2SecretAccessKey string
 	R2BucketName      string
 	R2PublicURL       string // CDN base URL, e.g., "https://cdn.eventarc.app"
+	// Scan processing
+	ScanTimeout string // request timeout for scan endpoint (default "5s")
 }
 
 // Load reads configuration from environment variables with sensible defaults.
@@ -30,6 +32,7 @@ func Load() *Config {
 		R2SecretAccessKey: getEnv("R2_SECRET_ACCESS_KEY", ""),
 		R2BucketName:      getEnv("R2_BUCKET_NAME", "eventarc-qr"),
 		R2PublicURL:       getEnv("R2_PUBLIC_URL", ""),
+		ScanTimeout:       getEnv("SCAN_TIMEOUT", "5s"),
 	}
 }
 
