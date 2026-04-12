@@ -95,6 +95,7 @@ func main() {
 	mux.HandleFunc(worker.TaskQRGenerateSingle, qrHandler.HandleGenerateSingle)
 	mux.HandleFunc(scan.TaskPGWrite, scan.HandlePGWrite(scanPGStore))
 	mux.HandleFunc(scan.TaskConvexSync, scan.HandleConvexSync())
+	mux.HandleFunc(scan.TaskFoodScanPGWrite, scan.HandleFoodScanPGWrite(pgPool))
 
 	// Start worker in goroutine
 	go func() {

@@ -3,6 +3,7 @@ package scan
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"strconv"
 	"strings"
 	"time"
@@ -147,6 +148,32 @@ func (s *Service) ProcessFoodScan(ctx context.Context, req FoodScanRequest) (Foo
 		remaining := -1
 		if limit >= 0 {
 			remaining = limit - current
+		}
+
+		// Enqueue async PG write for durable storage (dual-write pattern)
+		isAnonymous := foodQrMode == "anonymous"
+		if s.asynqClient != nil {
+			pgPayload := FoodScanPGPayload{
+				IdempotencyKey:   fmt.Sprintf("food:%s:%s:%s:%s", payload.EventID, payload.GuestID, req.FoodCategoryID, now),
+				EventID:          payload.EventID,
+				GuestID:          payload.GuestID,
+				FoodCategoryID:   req.FoodCategoryID,
+				StallID:          req.StallID,
+				ScannedAt:        now,
+				DeviceID:         req.DeviceID,
+				GuestCategory:    guestCategoryID,
+				IsAnonymous:      isAnonymous,
+				ConsumptionCount: current,
+				Status:           "valid",
+			}
+			task, taskErr := NewFoodScanPGWriteTask(pgPayload)
+			if taskErr == nil {
+				if _, enqErr := s.asynqClient.Enqueue(task); enqErr != nil {
+					slog.Warn("failed to enqueue food scan pg write", "error", enqErr,
+						"event_id", payload.EventID, "guest_id", payload.GuestID)
+					// Non-fatal: Redis has correct state. PG write will be manually reconciled.
+				}
+			}
 		}
 
 		return FoodScanResult{
