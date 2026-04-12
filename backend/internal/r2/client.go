@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -68,6 +69,30 @@ func (c *Client) PublicURL(key string) string {
 // Format: {eventID}/{guestID}/{typeName}.png
 func BuildKey(eventID, guestID string, qrType byte) string {
 	return fmt.Sprintf("%s/%s/%s.png", eventID, guestID, qrTypeName(qrType))
+}
+
+// Download retrieves an object from R2 by key and returns its bytes.
+func (c *Client) Download(ctx context.Context, key string) ([]byte, error) {
+	output, err := c.s3Client.GetObject(ctx, &s3.GetObjectInput{
+		Bucket: aws.String(c.bucketName),
+		Key:    aws.String(key),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("r2: download failed for key %q: %w", key, err)
+	}
+	defer output.Body.Close()
+
+	data, err := io.ReadAll(output.Body)
+	if err != nil {
+		return nil, fmt.Errorf("r2: failed to read body for key %q: %w", key, err)
+	}
+	return data, nil
+}
+
+// BuildCardKey constructs the R2 object key for a guest's composite card image.
+// Format: {eventID}/{guestID}/card.png
+func BuildCardKey(eventID, guestID string) string {
+	return fmt.Sprintf("%s/%s/card.png", eventID, guestID)
 }
 
 // BuildEventPrefix returns the R2 key prefix for all QR codes of an event.
