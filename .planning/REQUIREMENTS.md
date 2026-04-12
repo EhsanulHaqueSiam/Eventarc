@@ -66,11 +66,11 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Offline Resilience
 
-- [ ] **OFFL-01**: When device loses network, scanning continues — scans are queued locally in IndexedDB with timestamps and idempotency keys
+- [x] **OFFL-01**: When device loses network, scanning continues — scans are queued locally in IndexedDB with timestamps and idempotency keys
 - [ ] **OFFL-02**: On reconnection, queued scans are re-validated against current DB state — not blindly accepted
 - [ ] **OFFL-03**: If a queued scan would have been invalid (guest hit limit while device was offline), it's flagged as rejected retroactively and vendor device is notified
-- [ ] **OFFL-04**: Offline mode is a brief safety net (minutes), not a sustained operating mode — system is primarily online
-- [ ] **OFFL-05**: No duplicate processing on sync — idempotency keys prevent double-counting even if sync retries
+- [x] **OFFL-04**: Offline mode is a brief safety net (minutes), not a sustained operating mode — system is primarily online
+- [x] **OFFL-05**: No duplicate processing on sync — idempotency keys prevent double-counting even if sync retries
 
 ### Invitation System
 
@@ -176,11 +176,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | VSCN-03 | Phase 6 | Pending |
 | VSCN-04 | Phase 6 | Pending |
 | VSCN-05 | Phase 6 | Pending |
-| OFFL-01 | Phase 7 | Pending |
+| OFFL-01 | Phase 7 | Complete |
 | OFFL-02 | Phase 7 | Pending |
 | OFFL-03 | Phase 7 | Pending |
-| OFFL-04 | Phase 7 | Pending |
-| OFFL-05 | Phase 7 | Pending |
+| OFFL-04 | Phase 7 | Complete |
+| OFFL-05 | Phase 7 | Complete |
 | INVT-01 | Phase 8 | Pending |
 | INVT-02 | Phase 8 | Pending |
 | INVT-03 | Phase 8 | Pending |
