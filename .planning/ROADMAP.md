@@ -194,8 +194,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 10-01-PLAN.md -- Integration tests (testcontainers PG+Redis), config matrix (6 combos), QR security suite (10 attack vectors), SMS batch test (1000+ messages with mock provider)
-- [ ] 10-02-PLAN.md -- k6 load test matrix (10K VUs, entry+food+SSE, all 6 configs), 60K image generation stress test (memory bounds, crash recovery), staging Docker Compose, test runner script
+- [x] 10-01-PLAN.md -- Integration tests (testcontainers PG+Redis), config matrix (6 combos), QR security suite (12 attack vectors), SMS batch test (1000+ messages with mock provider)
+- [x] 10-02-PLAN.md -- k6 load test matrix (10K VUs, entry+food+SSE, all 6 configs), 60K image generation stress test (memory bounds, crash recovery), staging Docker Compose, test runner script
 
 ## Progress
 
@@ -213,4 +213,4 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10
 | 7. Offline Resilience | 0/2 | Planned | - |
 | 8. Invitation Card Editor & SMS Pipeline | 0/3 | Not started | - |
 | 9. Real-Time Admin Dashboard | 0/2 | Planned | - |
-| 10. Pre-Launch Hardening | 0/2 | Planned | - |
+| 10. Pre-Launch Hardening | 2/2 | Complete | 2026-04-12 |
