@@ -166,6 +166,17 @@ export const updateConfig = mutation({
       throw new Error("Cannot modify configuration after event goes live");
     }
 
+    // If QR codes have been generated and config changes, mark for regeneration
+    if (event.qrGenerationStatus === "complete") {
+      await ctx.db.patch(args.eventId, {
+        qrGenerationStatus: undefined,
+        qrJobId: undefined,
+        config: args.config,
+        updatedAt: Date.now(),
+      });
+      return args.eventId;
+    }
+
     await ctx.db.patch(args.eventId, {
       config: args.config,
       updatedAt: Date.now(),

@@ -20,6 +20,16 @@ export default defineSchema({
       foodQrMode: v.union(v.literal("guestLinked"), v.literal("anonymous")),
       foodQrTiming: v.union(v.literal("preSent"), v.literal("postEntry")),
     }),
+    // QR generation tracking (Phase 3)
+    qrGenerationStatus: v.optional(
+      v.union(
+        v.literal("pending"),
+        v.literal("running"),
+        v.literal("complete"),
+        v.literal("failed"),
+      ),
+    ),
+    qrJobId: v.optional(v.string()),
     createdBy: v.optional(v.string()),
     createdAt: v.number(),
     updatedAt: v.number(),
@@ -71,6 +81,15 @@ export default defineSchema({
       v.literal("smsSent"),
       v.literal("smsDelivered"),
       v.literal("checkedIn"),
+    ),
+    // QR generation fields (Phase 3)
+    qrGenerated: v.optional(v.boolean()),
+    qrUrls: v.optional(
+      v.object({
+        entry: v.optional(v.string()),
+        food: v.optional(v.string()),
+        unified: v.optional(v.string()),
+      }),
     ),
     createdAt: v.number(),
     updatedAt: v.number(),
