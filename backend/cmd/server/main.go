@@ -74,6 +74,19 @@ func main() {
 		r.Post("/event", handler.HandleSyncEvent)
 	})
 
+	// Public scanner endpoints (no HMAC — vendors have no credentials per VSCN-01)
+	r.Route("/api/v1/session", func(r chi.Router) {
+		sh := handler.NewSessionHandler(redisClient)
+		r.Post("/", sh.CreateSession)
+		r.Get("/", sh.ValidateSession)
+	})
+	// Admin-protected session management
+	r.Route("/api/v1/admin/session", func(r chi.Router) {
+		r.Use(middleware.HMACAuth(cfg.HMACSecret))
+		sh := handler.NewSessionHandler(redisClient)
+		r.Delete("/{token}", sh.RevokeSession)
+	})
+
 	// Scan processing (unauthenticated — QR payload HMAC is the auth mechanism)
 	scanSvc := scan.NewService(redisClient, pgPool, []byte(cfg.HMACSecret))
 	scanSvc.SetAsynqClient(asynqClient)

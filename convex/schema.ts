@@ -133,6 +133,22 @@ export default defineSchema({
     .index("by_event_status", ["eventId", "status"])
     .index("by_providerRequestId", ["providerRequestId"]),
 
+  deviceSessions: defineTable({
+    eventId: v.id("events"),
+    stallId: v.id("stalls"),
+    vendorCategoryId: v.id("vendorCategories"),
+    vendorTypeId: v.id("vendorTypes"),
+    stallName: v.string(),
+    token: v.string(), // Opaque token (stored in Go/Redis, mirrored here for admin view)
+    status: v.union(v.literal("active"), v.literal("revoked")),
+    lastHeartbeat: v.number(),
+    scanCount: v.number(),
+    createdAt: v.number(),
+  })
+    .index("by_event", ["eventId"])
+    .index("by_event_status", ["eventId", "status"])
+    .index("by_token", ["token"]),
+
   cardTemplates: defineTable({
     eventId: v.id("events"),
     name: v.string(),
