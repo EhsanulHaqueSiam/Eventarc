@@ -89,9 +89,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 04-01-PLAN.md -- Scan service core: Redis Lua atomic check-in, scan handler (POST /api/v1/scan/entry), guest cache lookup, QR HMAC validation, unit tests (miniredis)
-- [ ] 04-02-PLAN.md -- PG durability layer: migration 000002 (indexes, guest_category), sqlc queries, asynq background PG writes + Convex sync-back, counter re-seeding from PG, worker binary
-- [ ] 04-03-PLAN.md -- Load testing & verification: k6 10K concurrent VU script, Go race detector concurrency tests, counter reconciliation tests, Docker worker config
+- [x] 04-01-PLAN.md -- Scan service core: Redis Lua atomic check-in, scan handler (POST /api/v1/scan/entry), guest cache lookup, QR HMAC validation, unit tests (miniredis)
+- [x] 04-02-PLAN.md -- PG durability layer: migration 000002 (indexes, guest_category), sqlc queries, asynq background PG writes + Convex sync-back, counter re-seeding from PG, worker binary
+- [x] 04-03-PLAN.md -- Load testing & verification: k6 10K concurrent VU script, Go race detector concurrency tests, counter reconciliation tests, Docker worker config
 
 ### Phase 5: Food Scan & Rules Engine
 **Goal**: Food scans enforce per-person and per-category consumption limits across all stalls in real-time, in both guest-linked and anonymous modes
@@ -157,8 +157,8 @@ Plans:
 **Plans**: 3 plans in 2 waves
 
 Plans:
-- [ ] 08-01: Image compositing pipeline & card template backend (Wave 1)
-- [ ] 08-02: Frontend card editor with Fabric.js & SMS dashboard UI (Wave 1)
+- [x] 08-01: Image compositing pipeline & card template backend (Wave 1)
+- [x] 08-02: Frontend card editor with Fabric.js & SMS dashboard UI (Wave 1)
 - [ ] 08-03: SMS provider abstraction & bulk delivery pipeline (Wave 2)
 
 **UI hint**: yes
