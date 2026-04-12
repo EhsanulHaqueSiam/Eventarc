@@ -12,8 +12,10 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as SizingGuideRouteImport } from './routes/sizing-guide'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ScannerIndexRouteImport } from './routes/scanner/index'
 import { Route as EventsIndexRouteImport } from './routes/events/index'
 import { Route as EventsEventIdRouteImport } from './routes/events/$eventId'
+import { Route as EventsEventIdCardsRouteImport } from './routes/events/$eventId/cards'
 import { Route as EventsEventIdGuestsIndexRouteImport } from './routes/events/$eventId/guests/index'
 import { Route as EventsEventIdGuestsImportRouteImport } from './routes/events/$eventId/guests/import'
 
@@ -32,6 +34,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ScannerIndexRoute = ScannerIndexRouteImport.update({
+  id: '/scanner/',
+  path: '/scanner/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const EventsIndexRoute = EventsIndexRouteImport.update({
   id: '/events/',
   path: '/events/',
@@ -41,6 +48,11 @@ const EventsEventIdRoute = EventsEventIdRouteImport.update({
   id: '/events/$eventId',
   path: '/events/$eventId',
   getParentRoute: () => rootRouteImport,
+} as any)
+const EventsEventIdCardsRoute = EventsEventIdCardsRouteImport.update({
+  id: '/cards',
+  path: '/cards',
+  getParentRoute: () => EventsEventIdRoute,
 } as any)
 const EventsEventIdGuestsIndexRoute =
   EventsEventIdGuestsIndexRouteImport.update({
@@ -61,6 +73,8 @@ export interface FileRoutesByFullPath {
   '/sizing-guide': typeof SizingGuideRoute
   '/events/$eventId': typeof EventsEventIdRouteWithChildren
   '/events/': typeof EventsIndexRoute
+  '/scanner/': typeof ScannerIndexRoute
+  '/events/$eventId/cards': typeof EventsEventIdCardsRoute
   '/events/$eventId/guests/import': typeof EventsEventIdGuestsImportRoute
   '/events/$eventId/guests/': typeof EventsEventIdGuestsIndexRoute
 }
@@ -70,6 +84,8 @@ export interface FileRoutesByTo {
   '/sizing-guide': typeof SizingGuideRoute
   '/events/$eventId': typeof EventsEventIdRouteWithChildren
   '/events': typeof EventsIndexRoute
+  '/scanner': typeof ScannerIndexRoute
+  '/events/$eventId/cards': typeof EventsEventIdCardsRoute
   '/events/$eventId/guests/import': typeof EventsEventIdGuestsImportRoute
   '/events/$eventId/guests': typeof EventsEventIdGuestsIndexRoute
 }
@@ -80,6 +96,8 @@ export interface FileRoutesById {
   '/sizing-guide': typeof SizingGuideRoute
   '/events/$eventId': typeof EventsEventIdRouteWithChildren
   '/events/': typeof EventsIndexRoute
+  '/scanner/': typeof ScannerIndexRoute
+  '/events/$eventId/cards': typeof EventsEventIdCardsRoute
   '/events/$eventId/guests/import': typeof EventsEventIdGuestsImportRoute
   '/events/$eventId/guests/': typeof EventsEventIdGuestsIndexRoute
 }
@@ -91,6 +109,8 @@ export interface FileRouteTypes {
     | '/sizing-guide'
     | '/events/$eventId'
     | '/events/'
+    | '/scanner/'
+    | '/events/$eventId/cards'
     | '/events/$eventId/guests/import'
     | '/events/$eventId/guests/'
   fileRoutesByTo: FileRoutesByTo
@@ -100,6 +120,8 @@ export interface FileRouteTypes {
     | '/sizing-guide'
     | '/events/$eventId'
     | '/events'
+    | '/scanner'
+    | '/events/$eventId/cards'
     | '/events/$eventId/guests/import'
     | '/events/$eventId/guests'
   id:
@@ -109,6 +131,8 @@ export interface FileRouteTypes {
     | '/sizing-guide'
     | '/events/$eventId'
     | '/events/'
+    | '/scanner/'
+    | '/events/$eventId/cards'
     | '/events/$eventId/guests/import'
     | '/events/$eventId/guests/'
   fileRoutesById: FileRoutesById
@@ -119,6 +143,7 @@ export interface RootRouteChildren {
   SizingGuideRoute: typeof SizingGuideRoute
   EventsEventIdRoute: typeof EventsEventIdRouteWithChildren
   EventsIndexRoute: typeof EventsIndexRoute
+  ScannerIndexRoute: typeof ScannerIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -144,6 +169,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/scanner/': {
+      id: '/scanner/'
+      path: '/scanner'
+      fullPath: '/scanner/'
+      preLoaderRoute: typeof ScannerIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/events/': {
       id: '/events/'
       path: '/events'
@@ -157,6 +189,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/events/$eventId'
       preLoaderRoute: typeof EventsEventIdRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/events/$eventId/cards': {
+      id: '/events/$eventId/cards'
+      path: '/cards'
+      fullPath: '/events/$eventId/cards'
+      preLoaderRoute: typeof EventsEventIdCardsRouteImport
+      parentRoute: typeof EventsEventIdRoute
     }
     '/events/$eventId/guests/': {
       id: '/events/$eventId/guests/'
@@ -176,11 +215,13 @@ declare module '@tanstack/react-router' {
 }
 
 interface EventsEventIdRouteChildren {
+  EventsEventIdCardsRoute: typeof EventsEventIdCardsRoute
   EventsEventIdGuestsImportRoute: typeof EventsEventIdGuestsImportRoute
   EventsEventIdGuestsIndexRoute: typeof EventsEventIdGuestsIndexRoute
 }
 
 const EventsEventIdRouteChildren: EventsEventIdRouteChildren = {
+  EventsEventIdCardsRoute: EventsEventIdCardsRoute,
   EventsEventIdGuestsImportRoute: EventsEventIdGuestsImportRoute,
   EventsEventIdGuestsIndexRoute: EventsEventIdGuestsIndexRoute,
 }
@@ -195,6 +236,7 @@ const rootRouteChildren: RootRouteChildren = {
   SizingGuideRoute: SizingGuideRoute,
   EventsEventIdRoute: EventsEventIdRouteWithChildren,
   EventsIndexRoute: EventsIndexRoute,
+  ScannerIndexRoute: ScannerIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

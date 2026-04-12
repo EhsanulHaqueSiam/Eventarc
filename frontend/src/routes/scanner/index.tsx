@@ -1,7 +1,26 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useCallback, useEffect } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { ScannerSetup } from "@/components/scanner/scanner-setup";
+import { CameraViewfinder } from "@/components/scanner/camera-viewfinder";
+import { ScanFlashOverlay } from "@/components/scanner/scan-flash-overlay";
+import { ScanResultCard } from "@/components/scanner/scan-result-card";
+import { ScanNextCard } from "@/components/scanner/scan-next-card";
+import { SessionRevoked } from "@/components/scanner/session-revoked";
+import { SessionStatus } from "@/components/scanner/session-status";
 import { useDeviceSession } from "@/hooks/use-device-session";
+import { useScannerStore } from "@/hooks/use-scanner";
+import { useAudioFeedback } from "@/hooks/use-audio-feedback";
 
 export const Route = createFileRoute("/scanner/")({
   component: ScannerPage,
@@ -23,28 +42,10 @@ function ScannerPage() {
   }
 
   if (isRevoked) {
-    return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4">
-        <div className="rounded-xl border border-destructive/30 bg-card p-8 text-center shadow-lg">
-          <h2 className="mb-2 text-xl font-semibold text-destructive">
-            Session Revoked
-          </h2>
-          <p className="mb-6 text-muted-foreground">
-            This scanning session has been revoked by an administrator. Please
-            contact your event coordinator.
-          </p>
-          <button
-            onClick={clearSession}
-            className="inline-flex h-10 items-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-          >
-            Select New Station
-          </button>
-        </div>
-      </div>
-    );
+    return <SessionRevoked onSelectNewStation={clearSession} />;
   }
 
-  if (!token) {
+  if (!token || !session) {
     return (
       <ScannerSetup
         onSessionCreated={() => {
@@ -55,28 +56,139 @@ function ScannerPage() {
     );
   }
 
-  // Active session — placeholder for Plan 02 camera scanning
+  return <ActiveScanner session={session} token={token} onChangeStation={clearSession} />;
+}
+
+function ActiveScanner({
+  session,
+  token,
+  onChangeStation,
+}: {
+  session: {
+    stallId: string;
+    eventId: string;
+    vendorCategoryId: string;
+    vendorTypeId: string;
+    stallName: string;
+  };
+  token: string;
+  onChangeStation: () => void;
+}) {
+  const state = useScannerStore((s) => s.state);
+  const scanResult = useScannerStore((s) => s.scanResult);
+  const serverResponse = useScannerStore((s) => s.serverResponse);
+  const scanCount = useScannerStore((s) => s.scanCount);
+  const onQrDetected = useScannerStore((s) => s.onQrDetected);
+  const onConfirm = useScannerStore((s) => s.onConfirm);
+  const onDismiss = useScannerStore((s) => s.onDismiss);
+  const onFlashComplete = useScannerStore((s) => s.onFlashComplete);
+  const onScanNext = useScannerStore((s) => s.onScanNext);
+
+  const { playSuccess, playFailure, playDuplicate } = useAudioFeedback();
+
+  // Play audio cue when flash starts
+  useEffect(() => {
+    if (state === "flash" && serverResponse) {
+      switch (serverResponse.outcome) {
+        case "allowed":
+        case "served":
+          playSuccess();
+          break;
+        case "denied":
+          playFailure();
+          break;
+        case "duplicate_entry":
+        case "duplicate_food":
+          playDuplicate();
+          break;
+      }
+    }
+  }, [state, serverResponse, playSuccess, playFailure, playDuplicate]);
+
+  const handleConfirm = useCallback(() => {
+    onConfirm(token, session.stallId, session.vendorTypeId);
+  }, [onConfirm, token, session.stallId, session.vendorTypeId]);
+
+  const cameraActive = state === "idle";
+  const showResultCard = state === "reviewing" || state === "confirming";
+  const showFlash = state === "flash" && serverResponse;
+  const showScanNext = state === "ready";
+
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4">
-      <div className="rounded-xl border bg-card p-8 text-center shadow-lg">
-        <h2 className="mb-2 text-xl font-semibold text-foreground">
-          Session Active
-        </h2>
-        <p className="mb-2 text-muted-foreground">
-          {session?.stallName
-            ? `Station: ${session.stallName}`
-            : "Scanning station ready"}
-        </p>
-        <p className="text-xs text-muted-foreground">
-          Camera scanning coming in Plan 02
-        </p>
-        <button
-          onClick={clearSession}
-          className="mt-4 inline-flex h-10 items-center rounded-lg border px-4 text-sm text-muted-foreground hover:bg-muted"
-        >
-          Change Station
-        </button>
+    <div className="relative flex min-h-screen flex-col bg-black">
+      {/* Top bar */}
+      <div
+        className="fixed inset-x-0 top-0 z-30 flex h-12 items-center justify-between px-4"
+        style={{ backgroundColor: "oklch(0 0 0 / 60%)" }}
+      >
+        <span className="truncate text-sm font-medium text-white">
+          {session.stallName || "Scanning Station"}
+        </span>
+        <SessionStatus isConnected={true} />
       </div>
+
+      {/* Camera viewfinder */}
+      <div className="flex flex-1 items-center justify-center pt-12 pb-12">
+        <CameraViewfinder
+          onQrDetected={onQrDetected}
+          isActive={cameraActive}
+        />
+      </div>
+
+      {/* Bottom bar */}
+      <div
+        className="fixed inset-x-0 bottom-0 z-30 flex h-12 items-center justify-between px-4"
+        style={{ backgroundColor: "oklch(0 0 0 / 60%)" }}
+      >
+        <span className="text-sm text-white">Scans today: {scanCount}</span>
+        <Dialog>
+          <DialogTrigger className="text-sm text-white/80 hover:text-white">
+            Change Station
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Change station?</DialogTitle>
+              <DialogDescription>
+                You will need to select a new scanning station to continue.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="secondary" onClick={() => {}}>
+                Cancel
+              </Button>
+              <Button onClick={onChangeStation}>Change Station</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      {/* Flash overlay */}
+      {showFlash && (
+        <ScanFlashOverlay
+          outcome={serverResponse.outcome}
+          onComplete={onFlashComplete}
+        />
+      )}
+
+      {/* Result card (pre-confirm: reviewing/confirming) */}
+      {showResultCard && (
+        <ScanResultCard
+          outcome={serverResponse?.outcome ?? null}
+          serverResponse={serverResponse}
+          qrPayload={scanResult?.qrPayload ?? ""}
+          isConfirming={state === "confirming"}
+          onConfirm={handleConfirm}
+          onDismiss={onDismiss}
+        />
+      )}
+
+      {/* Scan next card */}
+      {showScanNext && (
+        <ScanNextCard
+          wasConfirmed={serverResponse !== null}
+          onScanNext={onScanNext}
+        />
+      )}
     </div>
   );
 }
