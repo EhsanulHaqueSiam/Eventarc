@@ -64,6 +64,16 @@ func (s *Service) SetDurabilityRequirements(requirePG, requireConvex bool) {
 	s.requireConvexDurability = requireConvex
 }
 
+func (s *Service) ensureDurabilitySinksConfigured() error {
+	if s.requirePGDurability && s.pgStore == nil && s.pgPool == nil {
+		return fmt.Errorf("scan durability requirement unmet: PG sink is not configured")
+	}
+	if s.requireConvexDurability && (s.convexClient == nil || !s.convexClient.IsConfigured()) {
+		return fmt.Errorf("scan durability requirement unmet: Convex sink is not configured")
+	}
+	return nil
+}
+
 // ProcessEntryScan is the main scan pipeline:
 // 1. Decode QR payload (HMAC verification)
 // 2. Validate QR type (must be entry or unified)
@@ -72,6 +82,10 @@ func (s *Service) SetDurabilityRequirements(requirePG, requireConvex bool) {
 // 5. Execute Lua check-in script atomically
 // 6. Return ScanResult with guest info + latest scan details
 func (s *Service) ProcessEntryScan(ctx context.Context, req ScanRequest) (ScanResult, error) {
+	if err := s.ensureDurabilitySinksConfigured(); err != nil {
+		return ScanResult{}, err
+	}
+
 	// Step 1: Decode and verify QR payload HMAC
 	payload, err := qr.DecodePayload(req.QRPayload, s.hmacSecret)
 	if err != nil {

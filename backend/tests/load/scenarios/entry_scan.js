@@ -15,6 +15,7 @@ const payloads = new SharedArray('entry_payloads', function () {
 });
 
 const BASE_URL = __ENV.BASE_URL || 'http://localhost:8080';
+const ENTRY_SESSION_TOKEN = __ENV.ENTRY_SESSION_TOKEN || __ENV.SESSION_TOKEN || '';
 
 export const options = {
   scenarios: {
@@ -42,6 +43,9 @@ export default function () {
   const payload = payloads[idx % payloads.length];
   const entryKey = __ENV.ENTRY_KEY || 'entry_payload';
 
+  const headers = { 'Content-Type': 'application/json' };
+  if (ENTRY_SESSION_TOKEN) headers.Authorization = `Bearer ${ENTRY_SESSION_TOKEN}`;
+
   const res = http.post(
     `${BASE_URL}/api/v1/scan/entry`,
     JSON.stringify({
@@ -50,7 +54,7 @@ export default function () {
       device_id: `device_k6_entry_${__VU}`,
     }),
     {
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       timeout: '5s',
     },
   );

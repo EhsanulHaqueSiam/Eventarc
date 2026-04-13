@@ -59,7 +59,14 @@ export async function syncOfflineScans(
         await updateScanStatus(scan.idempotency_key, "synced");
         progress.completed++;
         onSynced(scan.idempotency_key);
-      } else if (response.status === 409 || response.status === 422) {
+      } else if (
+        response.status === 400 ||
+        response.status === 401 ||
+        response.status === 403 ||
+        response.status === 404 ||
+        response.status === 409 ||
+        response.status === 422
+      ) {
         const errorData = (await response.json()) as {
           error?: { message?: string };
         };

@@ -32,6 +32,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 
+	"github.com/ehsanul-haque-siam/eventarc/internal/model"
 	"github.com/ehsanul-haque-siam/eventarc/internal/qr"
 )
 
@@ -161,15 +162,15 @@ func main() {
 		// 3. Seed food rules
 		rulesKey := fmt.Sprintf("foodrules:%s", eventID)
 		rdb.HSet(ctx, rulesKey, map[string]interface{}{
-			"vip:fuchka":     3,
-			"general:fuchka": 1,
-			"staff:fuchka":   2,
-			"vip:coke":       -1,
-			"general:coke":   2,
-			"staff:coke":     2,
-			"vip:biryani":    2,
+			"vip:fuchka":      3,
+			"general:fuchka":  1,
+			"staff:fuchka":    2,
+			"vip:coke":        -1,
+			"general:coke":    2,
+			"staff:coke":      2,
+			"vip:biryani":     2,
 			"general:biryani": 1,
-			"staff:biryani":  1,
+			"staff:biryani":   1,
 		})
 
 		// 4. Seed food category names
@@ -179,22 +180,56 @@ func main() {
 
 		// 5. Seed stall names
 		stallNames := map[string]string{
-			"stall_entry_01":  "Entry Gate 1",
-			"stall_entry_02":  "Entry Gate 2",
-			"stall_fuchka_01": "Fuchka Stall 1",
-			"stall_fuchka_02": "Fuchka Stall 2",
-			"stall_coke_01":   "Coke Stall 1",
+			"stall_entry_01":   "Entry Gate 1",
+			"stall_entry_02":   "Entry Gate 2",
+			"stall_fuchka_01":  "Fuchka Stall 1",
+			"stall_fuchka_02":  "Fuchka Stall 2",
+			"stall_coke_01":    "Coke Stall 1",
 			"stall_biryani_01": "Biryani Stall 1",
 		}
 		for stallID, name := range stallNames {
 			rdb.HSet(ctx, fmt.Sprintf("stall:%s:%s", eventID, stallID), "name", name)
 		}
 
-		// 6. Initialize counters
+		// 6. Seed deterministic scanner sessions for load scenarios.
+		entrySession := model.DeviceSession{
+			Token:            fmt.Sprintf("k6_entry_%s", eventID),
+			StallID:          "stall_entry_01",
+			EventID:          eventID,
+			VendorCategoryID: "cat_entry",
+			VendorTypeID:     "type_entry",
+			VendorType:       "entry",
+			CreatedAt:        time.Now().UTC(),
+		}
+		foodSession := model.DeviceSession{
+			Token:            fmt.Sprintf("k6_food_%s", eventID),
+			StallID:          "stall_fuchka_01",
+			EventID:          eventID,
+			VendorCategoryID: "fuchka",
+			VendorTypeID:     "type_food",
+			VendorType:       "food",
+			CreatedAt:        time.Now().UTC(),
+		}
+		entryRaw, err := json.Marshal(entrySession)
+		if err != nil {
+			log.Fatalf("failed to marshal entry session: %v", err)
+		}
+		foodRaw, err := json.Marshal(foodSession)
+		if err != nil {
+			log.Fatalf("failed to marshal food session: %v", err)
+		}
+		if err := rdb.Set(ctx, "session:"+entrySession.Token, entryRaw, 48*time.Hour).Err(); err != nil {
+			log.Fatalf("failed to seed entry session in redis: %v", err)
+		}
+		if err := rdb.Set(ctx, "session:"+foodSession.Token, foodRaw, 48*time.Hour).Err(); err != nil {
+			log.Fatalf("failed to seed food session in redis: %v", err)
+		}
+
+		// 7. Initialize counters
 		countersKey := fmt.Sprintf("counters:%s", eventID)
 		rdb.HSet(ctx, countersKey, "attendance", 0, "totalGuests", *guestsPerConfig)
 
-		// 7. Generate guests and payloads
+		// 8. Generate guests and payloads
 		categories := []string{"vip", "general", "staff"}
 		categoryWeights := []int{5000, 8000, 2000} // Per 15K: 5K VIP, 8K General, 2K Staff
 		if *guestsPerConfig != 15000 {

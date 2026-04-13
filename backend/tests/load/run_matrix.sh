@@ -100,6 +100,10 @@ for CONFIG in "${CONFIGS[@]}"; do
     FOOD_KEY="food_payload"
   fi
 
+  EVENT_ID="loadtest_${CONFIG}"
+  ENTRY_SESSION_TOKEN="k6_entry_${EVENT_ID}"
+  FOOD_SESSION_TOKEN="k6_food_${EVENT_ID}"
+
   # Step 3: Run mixed load test (entry + food simultaneous)
   echo ">>> Running mixed load test ($VUS VUs)..."
   CONFIG_RESULT="PASS"
@@ -109,13 +113,14 @@ for CONFIG in "${CONFIGS[@]}"; do
     --env CONFIG_NAME="$CONFIG" \
     --env ENTRY_KEY="$ENTRY_KEY" \
     --env FOOD_KEY="$FOOD_KEY" \
+    --env ENTRY_SESSION_TOKEN="$ENTRY_SESSION_TOKEN" \
+    --env FOOD_SESSION_TOKEN="$FOOD_SESSION_TOKEN" \
     --out json="$OUTPUT_DIR/${CONFIG}_mixed.json" \
     "$SCRIPT_DIR/scenarios/mixed_load.js" \
   || CONFIG_RESULT="FAIL"
 
   # Step 4: Counter reconciliation
   echo ">>> Verifying counter reconciliation..."
-  EVENT_ID="loadtest_${CONFIG}"
   REDIS_ATTENDANCE=$(redis-cli -u "$REDIS_URL" HGET "counters:${EVENT_ID}" attendance 2>/dev/null || echo "N/A")
   PG_COUNT=$(psql -t -A -c "SELECT COUNT(*) FROM entry_scans WHERE event_id='${EVENT_ID}' AND status='valid'" "$PG_URL" 2>/dev/null || echo "N/A")
   echo "  Redis attendance: $REDIS_ATTENDANCE"

@@ -27,6 +27,10 @@ import (
 // 7. Parse Lua result and build FoodScanResult
 // 8. On rejection: read consumption log from Redis for history entries
 func (s *Service) ProcessFoodScan(ctx context.Context, req FoodScanRequest) (FoodScanResult, error) {
+	if err := s.ensureDurabilitySinksConfigured(); err != nil {
+		return FoodScanResult{}, err
+	}
+
 	// Step 1: Decode and verify QR payload HMAC
 	payload, err := qr.DecodePayload(req.QRPayload, s.hmacSecret)
 	if err != nil {

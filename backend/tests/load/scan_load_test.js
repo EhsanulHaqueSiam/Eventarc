@@ -44,10 +44,14 @@ export const options = {
 };
 
 const BASE_URL = __ENV.BASE_URL || 'http://localhost:8080';
+const ENTRY_SESSION_TOKEN = __ENV.ENTRY_SESSION_TOKEN || __ENV.SESSION_TOKEN || '';
 
 export default function () {
   const idx = __VU - 1; // VU index (0-based)
   const payload = payloads[idx % payloads.length];
+
+  const headers = { 'Content-Type': 'application/json' };
+  if (ENTRY_SESSION_TOKEN) headers.Authorization = `Bearer ${ENTRY_SESSION_TOKEN}`;
 
   const res = http.post(
     `${BASE_URL}/api/v1/scan/entry`,
@@ -57,7 +61,7 @@ export default function () {
       device_id: `device_k6_${__VU}`,
     }),
     {
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       timeout: '5s',
     },
   );
@@ -86,6 +90,9 @@ export function duplicateFlood() {
   // Use the first payload repeatedly to test duplicate detection under load
   const payload = payloads[0];
 
+  const headers = { 'Content-Type': 'application/json' };
+  if (ENTRY_SESSION_TOKEN) headers.Authorization = `Bearer ${ENTRY_SESSION_TOKEN}`;
+
   const res = http.post(
     `${BASE_URL}/api/v1/scan/entry`,
     JSON.stringify({
@@ -94,7 +101,7 @@ export function duplicateFlood() {
       device_id: `device_dup_${__VU}`,
     }),
     {
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       timeout: '5s',
     },
   );

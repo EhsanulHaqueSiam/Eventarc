@@ -4,6 +4,7 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 
 	"context"
@@ -76,16 +77,23 @@ func main() {
 	qrHandler := worker.NewQRHandler(r2Client, redisClient, asynqClient, cfg.HMACSecret, logger)
 
 	// Configure asynq server
+	workerConcurrency := getEnvInt("ASYNQ_CONCURRENCY", 64)
+	queueCritical := getEnvInt("ASYNQ_QUEUE_CRITICAL", 6)
+	queuePGWrites := getEnvInt("ASYNQ_QUEUE_PG_WRITES", 24)
+	queueConvexSync := getEnvInt("ASYNQ_QUEUE_CONVEX_SYNC", 24)
+	queueDefault := getEnvInt("ASYNQ_QUEUE_DEFAULT", 3)
+	queueLow := getEnvInt("ASYNQ_QUEUE_LOW", 1)
+
 	srv := asynq.NewServer(
 		asynq.RedisClientOpt{Addr: redisAddr},
 		asynq.Config{
-			Concurrency: 10,
+			Concurrency: workerConcurrency,
 			Queues: map[string]int{
-				"critical":    6,
-				"pg-writes":   4,
-				"convex-sync": 2,
-				"default":     3,
-				"low":         1,
+				"critical":    queueCritical,
+				"pg-writes":   queuePGWrites,
+				"convex-sync": queueConvexSync,
+				"default":     queueDefault,
+				"low":         queueLow,
 			},
 			Logger: newAsynqLogger(logger),
 		},
@@ -102,7 +110,14 @@ func main() {
 
 	// Start worker in goroutine
 	go func() {
-		logger.Info("worker starting", "concurrency", 10)
+		logger.Info("worker starting",
+			"concurrency", workerConcurrency,
+			"queue_critical", queueCritical,
+			"queue_pg_writes", queuePGWrites,
+			"queue_convex_sync", queueConvexSync,
+			"queue_default", queueDefault,
+			"queue_low", queueLow,
+		)
 		if err := srv.Start(mux); err != nil {
 			logger.Error("worker failed to start", "error", err)
 			os.Exit(1)
@@ -126,6 +141,18 @@ func parseRedisAddr(redisURL string) string {
 		return "localhost:6379"
 	}
 	return opts.Addr
+}
+
+func getEnvInt(name string, fallback int) int {
+	raw := os.Getenv(name)
+	if raw == "" {
+		return fallback
+	}
+	parsed, err := strconv.Atoi(raw)
+	if err != nil || parsed <= 0 {
+		return fallback
+	}
+	return parsed
 }
 
 // asynqLogger adapts slog to asynq's Logger interface.

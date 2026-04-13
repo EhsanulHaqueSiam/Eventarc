@@ -20,7 +20,7 @@ import (
 // Flow:
 // 1. Set SSE headers
 // 2. Subscribe to broker for this event
-// 3. Read full snapshot from Redis counters (HGETALL event:{eventId}:counters)
+// 3. Read full snapshot from Redis counters (HGETALL counters:{eventId})
 // 4. Send snapshot event
 // 5. Subscribe to Redis Pub/Sub channel event:{eventId}:scans
 // 6. Stream: Redis Pub/Sub messages as SSE events + heartbeat every 15s
@@ -117,7 +117,7 @@ func NewLiveHandler(broker *SSEBroker, redisClient redis.Cmdable) http.HandlerFu
 // DASH-05: Reads ONLY from Redis counters, NEVER queries scan tables.
 func buildSnapshot(ctx context.Context, rc redis.Cmdable, eventID string, broker *SSEBroker) (*DashboardSnapshot, error) {
 	// Read all counters from hash
-	counters, err := rc.HGetAll(ctx, fmt.Sprintf("event:%s:counters", eventID)).Result()
+	counters, err := rc.HGetAll(ctx, fmt.Sprintf("counters:%s", eventID)).Result()
 	if err != nil {
 		return nil, fmt.Errorf("failed to read counters: %w", err)
 	}
@@ -130,24 +130,46 @@ func buildSnapshot(ctx context.Context, rc redis.Cmdable, eventID string, broker
 		pct = float64(checkedIn) / float64(totalInvited) * 100
 	}
 
-	// Parse food categories (keys matching food:*:total)
+	// Parse food categories (keys matching food:*:served)
 	foodCategories := []FoodCategoryData{}
 	for key, val := range counters {
-		if strings.HasPrefix(key, "food:") && strings.HasSuffix(key, ":total") {
-			parts := strings.Split(key, ":")
-			if len(parts) >= 3 {
-				catName := parts[1]
-				served, _ := strconv.ParseInt(val, 10, 64)
-				foodCategories = append(foodCategories, FoodCategoryData{
-					Category: catName,
-					Served:   served,
-				})
+		if strings.HasPrefix(key, "food:") && strings.HasSuffix(key, ":served") {
+			categoryID := strings.TrimSuffix(strings.TrimPrefix(key, "food:"), ":served")
+			if categoryID == "" {
+				continue
 			}
+			served, _ := strconv.ParseInt(val, 10, 64)
+			foodCategories = append(foodCategories, FoodCategoryData{
+				Category: categoryID,
+				Served:   served,
+			})
 		}
 	}
 
-	// Parse stall activity from counter keys
+	// Parse stall activity from counter keys (stall:{stallId}:served)
 	stalls := []StallActivityData{}
+	snapshotTime := time.Now().UTC()
+	for key, val := range counters {
+		if strings.HasPrefix(key, "stall:") && strings.HasSuffix(key, ":served") {
+			stallID := strings.TrimSuffix(strings.TrimPrefix(key, "stall:"), ":served")
+			if stallID == "" {
+				continue
+			}
+			scanCount, _ := strconv.ParseInt(val, 10, 64)
+			status := "idle"
+			if scanCount > 0 {
+				status = "active"
+			}
+			stalls = append(stalls, StallActivityData{
+				StallID:   stallID,
+				StallName: stallID,
+				ScanCount: scanCount,
+				LastScan:  snapshotTime,
+				Status:    status,
+			})
+		}
+	}
+
 	scansTotal := parseCounter(counters, "scans_total")
 	scansDuplicate := parseCounter(counters, "scans_duplicate")
 

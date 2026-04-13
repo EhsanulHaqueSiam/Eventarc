@@ -12,6 +12,9 @@ const payloads = new SharedArray('mixed_payloads', function () {
 });
 
 const BASE_URL = __ENV.BASE_URL || 'http://localhost:8080';
+const ENTRY_SESSION_TOKEN = __ENV.ENTRY_SESSION_TOKEN || __ENV.SESSION_TOKEN || '';
+const FOOD_SESSION_TOKEN =
+  __ENV.FOOD_SESSION_TOKEN || __ENV.SESSION_TOKEN || ENTRY_SESSION_TOKEN;
 const mixError = new Counter('mix_error');
 
 export const options = {
@@ -42,6 +45,11 @@ export default function () {
   const foodKey = __ENV.FOOD_KEY || 'food_payload';
   const isEntryRequest = Math.random() < 0.7; // 70% entry, 30% food
 
+  const entryHeaders = { 'Content-Type': 'application/json' };
+  const foodHeaders = { 'Content-Type': 'application/json' };
+  if (ENTRY_SESSION_TOKEN) entryHeaders.Authorization = `Bearer ${ENTRY_SESSION_TOKEN}`;
+  if (FOOD_SESSION_TOKEN) foodHeaders.Authorization = `Bearer ${FOOD_SESSION_TOKEN}`;
+
   if (isEntryRequest) {
     group('entry_scan', function () {
       const res = http.post(
@@ -52,7 +60,7 @@ export default function () {
           device_id: `device_k6_mix_${__VU}`,
         }),
         {
-          headers: { 'Content-Type': 'application/json' },
+          headers: entryHeaders,
           timeout: '5s',
         },
       );
@@ -69,11 +77,22 @@ export default function () {
           food_category_id: 'fuchka',
         }),
         {
-          headers: { 'Content-Type': 'application/json' },
+          headers: foodHeaders,
           timeout: '5s',
         },
       );
-      if (res.status !== 200 && res.status !== 429) mixError.add(1);
+      if (res.status !== 200) {
+        mixError.add(1);
+        return;
+      }
+      try {
+        const body = JSON.parse(res.body);
+        if (body.status !== 'valid' && body.status !== 'limit_reached') {
+          mixError.add(1);
+        }
+      } catch (e) {
+        mixError.add(1);
+      }
     });
   }
 }

@@ -98,7 +98,7 @@ func TestFoodScanLua_AllowsWithinLimit(t *testing.T) {
 		t.Errorf("expected food counter '1', got %q", served)
 	}
 
-	stallServed, _ := rdb.HGet(ctx, countersKey, "food:stall_01:served").Result()
+	stallServed, _ := rdb.HGet(ctx, countersKey, "stall:stall_01:served").Result()
 	if stallServed != "1" {
 		t.Errorf("expected stall counter '1', got %q", stallServed)
 	}

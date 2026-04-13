@@ -36,7 +36,7 @@ limit = tonumber(limit)
 if limit == -1 then
   local newCount = redis.call('HINCRBY', KEYS[1], ARGV[2], 1)
   redis.call('HINCRBY', KEYS[3], 'food:' .. ARGV[2] .. ':served', 1)
-  redis.call('HINCRBY', KEYS[3], 'food:' .. ARGV[3] .. ':served', 1)
+  redis.call('HINCRBY', KEYS[3], 'stall:' .. ARGV[3] .. ':served', 1)
   local logEntry = ARGV[4] .. '|' .. ARGV[3] .. '|' .. ARGV[6]
   redis.call('LPUSH', KEYS[4], logEntry)
   redis.call('LTRIM', KEYS[4], 0, 49)
@@ -51,7 +51,7 @@ end
 
 local newCount = redis.call('HINCRBY', KEYS[1], ARGV[2], 1)
 redis.call('HINCRBY', KEYS[3], 'food:' .. ARGV[2] .. ':served', 1)
-redis.call('HINCRBY', KEYS[3], 'food:' .. ARGV[3] .. ':served', 1)
+redis.call('HINCRBY', KEYS[3], 'stall:' .. ARGV[3] .. ':served', 1)
 
 local logEntry = ARGV[4] .. '|' .. ARGV[3] .. '|' .. ARGV[6]
 redis.call('LPUSH', KEYS[4], logEntry)

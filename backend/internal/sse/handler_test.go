@@ -93,12 +93,13 @@ func TestSnapshotOnConnect(t *testing.T) {
 	router := setupTestRouter(t, broker, redisClient)
 
 	// Seed Redis with counter data
-	mr.HSet("event:evt-1:counters", "attendance", "150")
-	mr.HSet("event:evt-1:counters", "total_invited", "500")
-	mr.HSet("event:evt-1:counters", "scans_total", "180")
-	mr.HSet("event:evt-1:counters", "scans_duplicate", "30")
-	mr.HSet("event:evt-1:counters", "food:lunch:total", "100")
-	mr.HSet("event:evt-1:counters", "food:dinner:total", "50")
+	mr.HSet("counters:evt-1", "attendance", "150")
+	mr.HSet("counters:evt-1", "total_invited", "500")
+	mr.HSet("counters:evt-1", "scans_total", "180")
+	mr.HSet("counters:evt-1", "scans_duplicate", "30")
+	mr.HSet("counters:evt-1", "food:lunch:served", "100")
+	mr.HSet("counters:evt-1", "food:dinner:served", "50")
+	mr.HSet("counters:evt-1", "stall:stall_a:served", "25")
 
 	ctx, cancel := context.WithCancel(context.Background())
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/events/evt-1/live", nil)
@@ -168,6 +169,16 @@ func TestSnapshotOnConnect(t *testing.T) {
 	if len(snapshot.FoodCategories) != 2 {
 		t.Errorf("expected 2 food categories, got %d", len(snapshot.FoodCategories))
 	}
+	if len(snapshot.Stalls) != 1 {
+		t.Errorf("expected 1 stall activity item, got %d", len(snapshot.Stalls))
+	} else {
+		if snapshot.Stalls[0].StallID != "stall_a" {
+			t.Errorf("stallId = %q, want %q", snapshot.Stalls[0].StallID, "stall_a")
+		}
+		if snapshot.Stalls[0].ScanCount != 25 {
+			t.Errorf("stall scanCount = %d, want %d", snapshot.Stalls[0].ScanCount, 25)
+		}
+	}
 }
 
 func TestSnapshotReadsFromRedisCountersHash(t *testing.T) {
@@ -175,8 +186,8 @@ func TestSnapshotReadsFromRedisCountersHash(t *testing.T) {
 	broker := NewSSEBroker()
 
 	// Seed specific counter values
-	mr.HSet("event:evt-2:counters", "attendance", "42")
-	mr.HSet("event:evt-2:counters", "total_invited", "100")
+	mr.HSet("counters:evt-2", "attendance", "42")
+	mr.HSet("counters:evt-2", "total_invited", "100")
 
 	ctx := context.Background()
 	snapshot, err := buildSnapshot(ctx, redisClient, "evt-2", broker)
@@ -199,8 +210,8 @@ func TestSnapshotReadsFoodCounters(t *testing.T) {
 	mr, redisClient := setupTestRedis(t)
 	broker := NewSSEBroker()
 
-	mr.HSet("event:evt-3:counters", "food:lunch:total", "200")
-	mr.HSet("event:evt-3:counters", "food:snack:total", "75")
+	mr.HSet("counters:evt-3", "food:lunch:served", "200")
+	mr.HSet("counters:evt-3", "food:snack:served", "75")
 
 	ctx := context.Background()
 	snapshot, err := buildSnapshot(ctx, redisClient, "evt-3", broker)

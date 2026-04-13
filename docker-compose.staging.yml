@@ -47,8 +47,8 @@ services:
       redis-server
       --maxmemory 256mb
       --maxmemory-policy noeviction
-      --save ""
-      --appendonly no
+      --appendonly yes
+      --appendfsync everysec
       --tcp-backlog 511
       --timeout 0
       --tcp-keepalive 300
