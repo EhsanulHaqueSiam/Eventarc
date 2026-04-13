@@ -1,12 +1,11 @@
-import * as XLSX from "xlsx";
-
 export interface ParsedFile {
   headers: string[];
   rows: string[][]; // Each row is array of cell values as strings
   totalRows: number;
 }
 
-export function parseFile(file: File): Promise<ParsedFile> {
+export async function parseFile(file: File): Promise<ParsedFile> {
+  const XLSX = await import("xlsx");
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = (e) => {
