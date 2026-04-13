@@ -12,7 +12,7 @@ export function SessionRevoked({ onSelectNewStation }: SessionRevokedProps) {
       className="flex min-h-screen flex-col items-center justify-center bg-background px-4"
       aria-live="assertive"
     >
-      <Card className="w-full max-w-md border-l-4 border-l-destructive shadow-lg">
+      <Card className="w-full max-w-md bg-[oklch(0.97_0.03_27)] shadow-lg">
         <CardContent className="space-y-4 p-8 text-center">
           <ShieldX className="mx-auto size-12 text-destructive" />
           <h2 className="text-2xl font-semibold text-foreground">

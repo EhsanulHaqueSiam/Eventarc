@@ -6,7 +6,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <SidebarProvider>
       <AppSidebar />
       <SidebarInset>
-        <main className="mx-auto w-full max-w-[1200px] p-8 md:p-6 sm:p-4">
+        <main className="mx-auto w-full max-w-[1200px] p-4 sm:p-6 lg:p-8">
           {children}
         </main>
       </SidebarInset>

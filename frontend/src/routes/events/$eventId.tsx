@@ -123,8 +123,8 @@ function EventDetailPage() {
       await removeEvent({ eventId: event._id });
       toast.success("Event deleted");
       navigate({ to: "/events" });
-    } catch {
-      toast.error("Failed to delete event");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not delete event. Check your connection and try again.");
     }
   };
 
@@ -132,8 +132,8 @@ function EventDetailPage() {
     try {
       await updateStatus({ eventId: event._id, newStatus });
       toast.success(`Event transitioned to ${newStatus}`);
-    } catch {
-      toast.error("Failed to update status");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : `Could not change status to ${newStatus}. Try again.`);
     }
   };
 

@@ -156,7 +156,7 @@ export function ExportEventButton({ eventId, eventName }: ExportEventButtonProps
 
   return (
     <Button variant="outline" onClick={() => void handleExport()} disabled={!isReady || isExporting}>
-      <Download className="mr-2 size-4" />
+      <Download className="size-4" />
       {!isReady ? "Preparing export..." : isExporting ? "Exporting..." : "Export Excel"}
     </Button>
   );

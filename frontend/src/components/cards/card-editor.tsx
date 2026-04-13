@@ -131,7 +131,7 @@ export function CardEditor({ onSave, templateJSON }: CardEditorProps) {
           onClick={() => fileInputRef.current?.click()}
           disabled={isLoading}
         >
-          <Upload className="mr-2 size-4" />
+          <Upload className="size-4" />
           Upload Background
         </Button>
 
@@ -142,7 +142,7 @@ export function CardEditor({ onSave, templateJSON }: CardEditorProps) {
               disabled={!hasBackground || isLoading}
               onClick={handlePreview}
             >
-              <Eye className="mr-2 size-4" />
+              <Eye className="size-4" />
               Preview Composite
             </Button>
           </DialogTrigger>

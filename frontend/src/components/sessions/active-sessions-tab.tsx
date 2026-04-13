@@ -85,7 +85,7 @@ export function ActiveSessionsTab({ eventId }: ActiveSessionsTabProps) {
   return (
     <div className="space-y-4">
       <div>
-        <h3 className="text-lg font-semibold">Active Sessions</h3>
+        <h3 className="font-display text-lg font-semibold">Active Sessions</h3>
         <p className="text-sm text-muted-foreground">
           {activeSessions.length} active scanning station
           {activeSessions.length !== 1 ? "s" : ""}

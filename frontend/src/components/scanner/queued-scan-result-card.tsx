@@ -53,8 +53,7 @@ export function QueuedScanResultCard({
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/50">
       <Card
-        className="w-[min(90vw,400px)] max-h-[70vh] overflow-auto shadow-lg"
-        style={{ borderLeft: "4px solid oklch(0.82 0.17 85)" }}
+        className="w-[min(90vw,400px)] max-h-[70vh] overflow-auto bg-[oklch(0.97_0.02_85)] shadow-lg"
         role="alertdialog"
         aria-labelledby="queued-scan-heading"
         aria-describedby="queued-scan-body"

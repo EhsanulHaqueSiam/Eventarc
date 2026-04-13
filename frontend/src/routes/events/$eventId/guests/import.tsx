@@ -44,7 +44,7 @@ function ImportPage() {
   if (event === null) {
     return (
       <div className="py-16 text-center">
-        <h2 className="text-lg font-semibold">Event not found</h2>
+        <h2 className="font-display text-lg font-semibold">Event not found</h2>
         <Link
           to="/events"
           className="mt-2 text-sm text-primary hover:underline"
@@ -89,7 +89,7 @@ function ImportPage() {
       </Breadcrumb>
 
       {/* Header */}
-      <h1 className="text-2xl font-semibold">Import Guests</h1>
+      <h1 className="font-display text-2xl font-semibold">Import Guests</h1>
 
       {/* Wizard */}
       <WizardShell eventId={typedEventId} />

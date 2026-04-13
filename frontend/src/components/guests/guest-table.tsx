@@ -168,7 +168,7 @@ export function GuestTable({ eventId, filters, onAddGuest }: GuestTableProps) {
     return (
       <div className="flex flex-col items-center gap-4 py-16">
         <div className="text-center">
-          <h3 className="text-lg font-semibold">No guests yet</h3>
+          <h3 className="font-display text-lg font-semibold">No guests yet</h3>
           <p className="mt-1 max-w-sm text-sm text-muted-foreground">
             Import a CSV or Excel file to add guests in bulk, or add them one
             at a time.
@@ -176,11 +176,11 @@ export function GuestTable({ eventId, filters, onAddGuest }: GuestTableProps) {
         </div>
         <div className="flex gap-3">
           <Button render={<Link to="/events/$eventId/guests/import" params={{ eventId }} />}>
-            <Upload className="mr-2 size-4" />
+            <Upload className="size-4" />
             Import Guests
           </Button>
           <Button variant="outline" onClick={onAddGuest}>
-            <UserPlus className="mr-2 size-4" />
+            <UserPlus className="size-4" />
             Add Guest
           </Button>
         </div>

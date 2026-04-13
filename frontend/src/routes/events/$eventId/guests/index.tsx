@@ -54,7 +54,7 @@ function GuestListPage() {
   if (event === null) {
     return (
       <div className="py-16 text-center">
-        <h2 className="text-lg font-semibold">Event not found</h2>
+        <h2 className="font-display text-lg font-semibold">Event not found</h2>
         <Link
           to="/events"
           className="mt-2 text-sm text-primary hover:underline"
@@ -93,7 +93,7 @@ function GuestListPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold">Guest Management</h1>
+          <h1 className="font-display text-2xl font-semibold">Guest Management</h1>
           {guestCount !== undefined && guestCount > 0 && (
             <p className="mt-1 text-sm text-muted-foreground">
               {guestCount.toLocaleString()} total guests
@@ -102,11 +102,11 @@ function GuestListPage() {
         </div>
         <div className="flex gap-3">
           <Button render={<Link to="/events/$eventId/guests/import" params={{ eventId }} />}>
-            <Upload className="mr-2 size-4" />
+            <Upload className="size-4" />
             Import Guests
           </Button>
           <Button variant="outline" onClick={() => setAddDialogOpen(true)}>
-            <UserPlus className="mr-2 size-4" />
+            <UserPlus className="size-4" />
             Add Guest
           </Button>
         </div>

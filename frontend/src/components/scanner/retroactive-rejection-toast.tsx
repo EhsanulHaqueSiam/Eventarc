@@ -49,8 +49,7 @@ export function RetroactiveRejectionToast() {
       toast.custom(
         (toastId) => (
           <div
-            className="w-[min(90vw,400px)] rounded-lg bg-card shadow-lg"
-            style={{ borderLeft: "4px solid var(--color-destructive, oklch(0.577 0.245 27.325))" }}
+            className="w-[min(90vw,400px)] rounded-lg bg-[oklch(0.97_0.03_27)] shadow-lg"
             role="alertdialog"
             aria-live="assertive"
           >

@@ -212,7 +212,7 @@ export function StepValidate() {
             ))}
           </div>
           <Button variant="outline" size="sm" onClick={handleDownloadErrors}>
-            <Download className="mr-2 size-4" />
+            <Download className="size-4" />
             Download Error Report
           </Button>
         </div>

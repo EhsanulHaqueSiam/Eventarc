@@ -85,14 +85,14 @@ export function CompositingStatus({
       <div className="flex flex-col items-center gap-4 py-16 text-center">
         <ImageIcon className="size-12 text-muted-foreground/40" />
         <div>
-          <h3 className="text-lg font-semibold">Cards not generated</h3>
+          <h3 className="font-display text-lg font-semibold">Cards not generated</h3>
           <p className="mt-1 max-w-md text-sm text-muted-foreground">
             Generate composite invitation cards for all guests. This runs in the
             background and takes about 10 minutes for 60,000 guests.
           </p>
         </div>
         <Button onClick={handleGenerate}>
-          <PlayCircle className="mr-2 size-4" />
+          <PlayCircle className="size-4" />
           Generate Cards
         </Button>
       </div>
@@ -151,12 +151,12 @@ export function CompositingStatus({
       {/* Actions */}
       <div className="flex items-center gap-2">
         <Button onClick={handleGenerate} disabled={isRunning}>
-          <PlayCircle className="mr-2 size-4" />
+          <PlayCircle className="size-4" />
           Generate Cards
         </Button>
         {(progress?.failed ?? 0) > 0 && (
           <Button variant="outline" onClick={handleGenerate} disabled={isRunning}>
-            <RefreshCw className="mr-2 size-4" />
+            <RefreshCw className="size-4" />
             Retry Failed
           </Button>
         )}

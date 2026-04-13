@@ -224,7 +224,7 @@ export function CategoriesTab({ eventId, canEdit = true }: CategoriesTabProps) {
         </div>
       ) : (
         <Button variant="outline" onClick={() => setIsAdding(true)}>
-          <Plus className="mr-2 size-4" />
+          <Plus className="size-4" />
           Add Category
         </Button>
       ))}

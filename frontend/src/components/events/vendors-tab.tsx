@@ -200,7 +200,7 @@ export function VendorsTab({ eventId, canEdit = true }: VendorsTabProps) {
           </div>
         ) : (
           <Button variant="outline" onClick={() => setAddingType(type)}>
-            <Plus className="mr-2 size-4" />
+            <Plus className="size-4" />
             Add {label.replace(" Vendors", "")} Category
           </Button>
         ))}
@@ -342,7 +342,7 @@ export function VendorsTab({ eventId, canEdit = true }: VendorsTabProps) {
                   size="sm"
                   onClick={() => setAddingStall(true)}
                 >
-                  <Plus className="mr-2 size-4" />
+                  <Plus className="size-4" />
                   Add Stall
                 </Button>
               </div>

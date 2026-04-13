@@ -8,6 +8,7 @@ import { EventCard } from "@/components/events/event-card";
 import { CreateEventDialog } from "@/components/events/create-event-dialog";
 import { Button } from "@/components/ui/button";
 import { CalendarDays, Archive } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { PageTransition, StaggerList, StaggerItem } from "@/lib/motion";
 
 export const Route = createFileRoute("/events/")({
@@ -120,11 +121,9 @@ function EventsListPage() {
           {statusFilter === "all" && archivedEvents.length > 0 && (
             <div className="space-y-4 border-t pt-6">
               <label className="flex w-fit cursor-pointer items-center gap-2 text-sm text-muted-foreground select-none">
-                <input
-                  type="checkbox"
+                <Switch
                   checked={showArchived}
-                  onChange={(e) => setShowArchived(e.target.checked)}
-                  className="size-4 rounded border-border accent-primary"
+                  onCheckedChange={setShowArchived}
                 />
                 <Archive className="size-3.5" />
                 Show archived ({archivedEvents.length})

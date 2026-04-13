@@ -1,5 +1,5 @@
 import { useNavigate } from "@tanstack/react-router";
-import { useMutation } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "convex/_generated/api";
 import type { Id } from "convex/_generated/dataModel";
 import { Badge } from "@/components/ui/badge";
@@ -22,7 +22,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { MoreVertical, Calendar, MapPin } from "lucide-react";
+import { MoreVertical, Calendar, MapPin, Users } from "lucide-react";
 import { toast } from "sonner";
 
 type EventStatus = "draft" | "active" | "live" | "completed" | "archived";
@@ -49,19 +49,20 @@ const statusStyles: Record<EventStatus, string> = {
 export function EventCard({ event }: EventCardProps) {
   const navigate = useNavigate();
   const removeEvent = useMutation(api.events.remove);
+  const guestCount = useQuery(api.guests.countByEvent, { eventId: event._id });
 
   const handleDelete = async () => {
     try {
       await removeEvent({ eventId: event._id });
       toast.success("Event deleted");
-    } catch {
-      toast.error("Failed to delete event");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not delete event. Try again.");
     }
   };
 
   return (
     <Card
-      className="cursor-pointer transition-shadow hover:shadow-md"
+      className="cursor-pointer shadow-card transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-card-hover"
       onClick={() => navigate({ to: "/events/$eventId", params: { eventId: event._id } })}
     >
       <CardHeader className="flex flex-row items-start justify-between pb-2">
@@ -116,7 +117,7 @@ export function EventCard({ event }: EventCardProps) {
         </DropdownMenu>
       </CardHeader>
       <CardContent>
-        <h3 className="text-lg font-semibold">{event.name}</h3>
+        <h3 className="font-display text-lg font-semibold">{event.name}</h3>
         <div className="mt-2 flex flex-col gap-1 text-sm text-muted-foreground">
           <span className="flex items-center gap-1.5">
             <Calendar className="size-3.5" />
@@ -134,7 +135,10 @@ export function EventCard({ event }: EventCardProps) {
             </span>
           )}
         </div>
-        <p className="mt-2 text-sm text-muted-foreground">Guests: --</p>
+        <span className="mt-2 flex items-center gap-1.5 text-sm text-muted-foreground">
+          <Users className="size-3.5" />
+          {guestCount !== undefined ? `${guestCount.toLocaleString()} guests` : "Loading..."}
+        </span>
       </CardContent>
     </Card>
   );

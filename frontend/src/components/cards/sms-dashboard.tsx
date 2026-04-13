@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SMSStatusBadge } from "./sms-status-badge";
+import { SMSTemplateEditor } from "./sms-template-editor";
 import { Send, RefreshCw, MessageSquare } from "lucide-react";
 import { toast } from "sonner";
 
@@ -52,7 +53,6 @@ interface SMSCounts {
 
 const DEFAULT_MESSAGE_TEMPLATE =
   "Your EventArc invitation card is ready. Download it here: {cardUrl}";
-const SMS_PLACEHOLDERS = ["{cardUrl}", "{link}", "{name}", "{phone}", "{number}"];
 
 function applySmsTemplate(
   template: string,
@@ -319,58 +319,19 @@ export function SMSDashboard({ eventId }: SMSDashboardProps) {
           </p>
         </div>
 
-        <Card>
-          <CardContent className="space-y-3 pt-6">
-            <div>
-              <p className="text-sm font-medium">SMS message body</p>
-              <p className="text-xs text-muted-foreground">
-                Available placeholders: {SMS_PLACEHOLDERS.join(", ")}
-              </p>
-            </div>
-            <textarea
-              value={messageTemplate}
-              onChange={(event) => setMessageTemplate(event.target.value)}
-              rows={4}
-              maxLength={800}
-              className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-              placeholder="Write SMS body..."
-            />
-            <div className="flex flex-wrap gap-1">
-              {SMS_PLACEHOLDERS.map((placeholder) => (
-                <button
-                  key={placeholder}
-                  type="button"
-                  onClick={() => setMessageTemplate((prev) => prev + placeholder)}
-                  className="rounded-md border bg-muted px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-muted/80 hover:text-foreground"
-                >
-                  {placeholder}
-                </button>
-              ))}
-            </div>
-            <div className="space-y-1">
-              <p className="text-xs font-medium text-muted-foreground">Preview</p>
-              <p className="rounded-md bg-muted px-3 py-2 text-xs break-all text-muted-foreground">
-                {templatePreview}
-              </p>
-            </div>
-            <div className="flex justify-end">
-              <Button
-                type="button"
-                variant="outline"
-                disabled={isSavingTemplate}
-                onClick={() => void handleSaveTemplate()}
-              >
-                {isSavingTemplate ? "Saving..." : "Save Template"}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+        <SMSTemplateEditor
+          messageTemplate={messageTemplate}
+          onTemplateChange={setMessageTemplate}
+          templatePreview={templatePreview}
+          isSaving={isSavingTemplate}
+          onSave={() => void handleSaveTemplate()}
+        />
 
         <div className="flex justify-center">
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button>
-                <Send className="mr-2 size-4" />
+                <Send className="size-4" />
                 Send Invitations
               </Button>
             </AlertDialogTrigger>
@@ -438,59 +399,20 @@ export function SMSDashboard({ eventId }: SMSDashboardProps) {
         </Card>
       </div>
 
-      {/* Actions */}
-      <Card>
-        <CardContent className="space-y-3 pt-6">
-          <div>
-            <p className="text-sm font-medium">SMS message body</p>
-            <p className="text-xs text-muted-foreground">
-              Available placeholders: {SMS_PLACEHOLDERS.join(", ")}
-            </p>
-          </div>
-          <textarea
-            value={messageTemplate}
-            onChange={(event) => setMessageTemplate(event.target.value)}
-            rows={4}
-            maxLength={800}
-            className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-            placeholder="Write SMS body..."
-          />
-          <div className="flex flex-wrap gap-1">
-            {SMS_PLACEHOLDERS.map((placeholder) => (
-              <button
-                key={placeholder}
-                type="button"
-                onClick={() => setMessageTemplate((prev) => prev + placeholder)}
-                className="rounded-md border bg-muted px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-muted/80 hover:text-foreground"
-              >
-                {placeholder}
-              </button>
-            ))}
-          </div>
-          <div className="space-y-1">
-            <p className="text-xs font-medium text-muted-foreground">Preview</p>
-            <p className="rounded-md bg-muted px-3 py-2 text-xs break-all text-muted-foreground">
-              {templatePreview}
-            </p>
-          </div>
-          <div className="flex justify-end">
-            <Button
-              type="button"
-              variant="outline"
-              disabled={isSavingTemplate}
-              onClick={() => void handleSaveTemplate()}
-            >
-              {isSavingTemplate ? "Saving..." : "Save Template"}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Template editor (shared component) */}
+      <SMSTemplateEditor
+        messageTemplate={messageTemplate}
+        onTemplateChange={setMessageTemplate}
+        templatePreview={templatePreview}
+        isSaving={isSavingTemplate}
+        onSave={() => void handleSaveTemplate()}
+      />
 
       <div className="flex items-center gap-2">
         <AlertDialog>
           <AlertDialogTrigger asChild>
             <Button>
-              <Send className="mr-2 size-4" />
+              <Send className="size-4" />
               Send Invitations
             </Button>
           </AlertDialogTrigger>
@@ -500,11 +422,7 @@ export function SMSDashboard({ eventId }: SMSDashboardProps) {
                 Send SMS to {counts?.total.toLocaleString()} guests?
               </AlertDialogTitle>
               <AlertDialogDescription>
-                Available placeholders:
-                <code className="ml-1">
-                  {SMS_PLACEHOLDERS.join(", ")}
-                </code>
-                .
+                This will send the current SMS template to all guests with their personalized card download links.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
@@ -553,7 +471,6 @@ export function SMSDashboard({ eventId }: SMSDashboardProps) {
           </TableHeader>
           <TableBody>
             {filteredDeliveries === undefined ? (
-              // Loading skeleton
               Array.from({ length: 5 }).map((_, i) => (
                 <TableRow key={i}>
                   <TableCell>

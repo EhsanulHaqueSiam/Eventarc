@@ -5,6 +5,7 @@ import { api } from "convex/_generated/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import {
   Table,
   TableBody,
@@ -135,10 +136,9 @@ export function EventAccessTab({ eventId }: EventAccessTabProps) {
           </div>
           <div className="flex items-center gap-3">
             <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
+              <Switch
                 checked={canEdit}
-                onChange={(event) => setCanEdit(event.target.checked)}
+                onCheckedChange={setCanEdit}
               />
               Can edit
             </label>

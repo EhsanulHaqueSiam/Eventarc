@@ -23,44 +23,44 @@ const outcomeConfig: Record<
   {
     icon: typeof CheckCircle;
     iconColor: string;
-    borderColor: string;
+    cardBg: string;
     heading: string;
   }
 > = {
   allowed: {
     icon: CheckCircle,
     iconColor: "text-[oklch(0.72_0.19_142)]",
-    borderColor: "border-l-[oklch(0.72_0.19_142)]",
+    cardBg: "bg-[oklch(0.97_0.02_142)]",
     heading: "Entry Allowed",
   },
   served: {
     icon: CheckCircle,
     iconColor: "text-[oklch(0.72_0.19_142)]",
-    borderColor: "border-l-[oklch(0.72_0.19_142)]",
+    cardBg: "bg-[oklch(0.97_0.02_142)]",
     heading: "Food Served",
   },
   denied: {
     icon: XCircle,
     iconColor: "text-destructive",
-    borderColor: "border-l-destructive",
+    cardBg: "bg-[oklch(0.97_0.03_27)]",
     heading: "Scan Rejected",
   },
   duplicate_entry: {
     icon: AlertTriangle,
     iconColor: "text-[oklch(0.82_0.17_85)]",
-    borderColor: "border-l-[oklch(0.82_0.17_85)]",
+    cardBg: "bg-[oklch(0.97_0.02_85)]",
     heading: "Already Checked In",
   },
   duplicate_food: {
     icon: AlertTriangle,
     iconColor: "text-[oklch(0.82_0.17_85)]",
-    borderColor: "border-l-[oklch(0.82_0.17_85)]",
+    cardBg: "bg-[oklch(0.97_0.02_85)]",
     heading: "Already Served",
   },
   network_error: {
     icon: AlertTriangle,
     iconColor: "text-[oklch(0.82_0.17_85)]",
-    borderColor: "border-l-[oklch(0.82_0.17_85)]",
+    cardBg: "bg-[oklch(0.97_0.02_85)]",
     heading: "Network Error",
   },
 };
@@ -168,7 +168,7 @@ export function ScanResultCard({
     return (
       <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/50">
         <Card
-          className="w-[min(90vw,400px)] max-h-[70vh] overflow-auto border-l-4 border-l-primary shadow-lg"
+          className="w-[min(90vw,400px)] max-h-[70vh] overflow-auto bg-[oklch(0.97_0.01_250)] shadow-lg"
           role="alertdialog"
           aria-labelledby="scan-result-heading"
           aria-describedby="scan-result-body"
@@ -258,7 +258,7 @@ export function ScanResultCard({
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/50">
       <Card
-        className={`w-[min(90vw,400px)] max-h-[70vh] overflow-auto border-l-4 ${config.borderColor} shadow-lg`}
+        className={`w-[min(90vw,400px)] max-h-[70vh] overflow-auto ${config.cardBg} shadow-lg`}
         role="alertdialog"
         aria-labelledby="scan-result-heading"
         aria-describedby="scan-result-body"

@@ -67,7 +67,7 @@ export function SizingGuide() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold">Infrastructure Sizing Guide</h1>
+        <h1 className="font-display text-2xl font-semibold">Infrastructure Sizing Guide</h1>
         <p className="mt-1 text-muted-foreground">
           Recommended configurations for your event scale
         </p>
