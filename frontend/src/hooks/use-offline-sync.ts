@@ -31,8 +31,9 @@ export async function syncOfflineScans(
   const progress = { total: scans.length, completed: 0, failed: 0 };
 
   const API_URL =
-    typeof import.meta !== "undefined" && import.meta.env?.VITE_GO_API_URL
-      ? import.meta.env.VITE_GO_API_URL
+    typeof import.meta !== "undefined" &&
+    (import.meta.env?.VITE_API_URL || import.meta.env?.VITE_GO_API_URL)
+      ? (import.meta.env.VITE_API_URL ?? import.meta.env.VITE_GO_API_URL)
       : "http://localhost:8080";
 
   for (const scan of scans) {
@@ -46,13 +47,10 @@ export async function syncOfflineScans(
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "X-Session-Token": getSessionToken(),
+          Authorization: `Bearer ${getSessionToken()}`,
         },
         body: JSON.stringify({
-          payload: scan.scan_payload,
-          idempotency_key: scan.idempotency_key,
-          stall_id: scan.stall_id,
-          queued_at: scan.timestamp,
+          qr_payload: scan.scan_payload,
         }),
         signal: AbortSignal.timeout(SYNC_TIMEOUT_MS),
       });

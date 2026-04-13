@@ -29,13 +29,14 @@ func NewPGStore(pool *pgxpool.Pool) *PGStore {
 
 // InsertParams holds the parameters for inserting a scan record.
 type InsertParams struct {
-	EventID       string
-	GuestID       string
-	StallID       string
-	DeviceID      string
-	ScannedAt     time.Time
-	GuestCategory string
-	Status        string
+	EventID          string
+	GuestID          string
+	StallID          string
+	DeviceID         string
+	ScannedAt        time.Time
+	GuestCategory    string
+	Status           string
+	AdditionalGuests int
 }
 
 // InsertEntryScan writes a scan record to PG using INSERT ON CONFLICT DO NOTHING.
@@ -45,14 +46,15 @@ func (s *PGStore) InsertEntryScan(ctx context.Context, params InsertParams) (*db
 	idempotencyKey := fmt.Sprintf("entry:%s:%s", params.EventID, params.GuestID)
 
 	row, err := s.queries.InsertEntryScan(ctx, db.InsertEntryScanParams{
-		IdempotencyKey: idempotencyKey,
-		EventID:        params.EventID,
-		GuestID:        params.GuestID,
-		StallID:        params.StallID,
-		ScannedAt:      pgtype.Timestamptz{Time: params.ScannedAt, Valid: true},
-		DeviceID:       params.DeviceID,
-		Status:         params.Status,
-		GuestCategory:  params.GuestCategory,
+		IdempotencyKey:   idempotencyKey,
+		EventID:          params.EventID,
+		GuestID:          params.GuestID,
+		StallID:          params.StallID,
+		ScannedAt:        pgtype.Timestamptz{Time: params.ScannedAt, Valid: true},
+		DeviceID:         params.DeviceID,
+		Status:           params.Status,
+		GuestCategory:    params.GuestCategory,
+		AdditionalGuests: int32(params.AdditionalGuests),
 	})
 	if err != nil {
 		// ON CONFLICT DO NOTHING returns no rows — pgx returns ErrNoRows

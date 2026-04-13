@@ -6,7 +6,7 @@ import (
 
 func TestBuildKey_Entry(t *testing.T) {
 	key := BuildKey("evt123", "gst456", 0x01)
-	expected := "evt123/gst456/entry.png"
+	expected := "events/evt123/guests/gst456/qr/entry.png"
 	if key != expected {
 		t.Errorf("BuildKey entry: got %q, want %q", key, expected)
 	}
@@ -14,7 +14,7 @@ func TestBuildKey_Entry(t *testing.T) {
 
 func TestBuildKey_Food(t *testing.T) {
 	key := BuildKey("evt123", "gst456", 0x02)
-	expected := "evt123/gst456/food.png"
+	expected := "events/evt123/guests/gst456/qr/food.png"
 	if key != expected {
 		t.Errorf("BuildKey food: got %q, want %q", key, expected)
 	}
@@ -22,7 +22,7 @@ func TestBuildKey_Food(t *testing.T) {
 
 func TestBuildKey_Unified(t *testing.T) {
 	key := BuildKey("evt123", "gst456", 0x03)
-	expected := "evt123/gst456/unified.png"
+	expected := "events/evt123/guests/gst456/qr/unified.png"
 	if key != expected {
 		t.Errorf("BuildKey unified: got %q, want %q", key, expected)
 	}
@@ -31,7 +31,7 @@ func TestBuildKey_Unified(t *testing.T) {
 func TestBuildKey_ConvexIDs(t *testing.T) {
 	// Test with Convex-style IDs
 	key := BuildKey("jd7f2g3h4k5m6n", "km8n9p0q1r2s3t", 0x01)
-	expected := "jd7f2g3h4k5m6n/km8n9p0q1r2s3t/entry.png"
+	expected := "events/jd7f2g3h4k5m6n/guests/km8n9p0q1r2s3t/qr/entry.png"
 	if key != expected {
 		t.Errorf("BuildKey Convex IDs: got %q, want %q", key, expected)
 	}
@@ -39,8 +39,8 @@ func TestBuildKey_ConvexIDs(t *testing.T) {
 
 func TestPublicURL(t *testing.T) {
 	client := &Client{publicURL: "https://cdn.example.com"}
-	url := client.PublicURL("evt123/gst456/entry.png")
-	expected := "https://cdn.example.com/evt123/gst456/entry.png"
+	url := client.PublicURL("events/evt123/guests/gst456/qr/entry.png")
+	expected := "https://cdn.example.com/events/evt123/guests/gst456/qr/entry.png"
 	if url != expected {
 		t.Errorf("PublicURL: got %q, want %q", url, expected)
 	}
@@ -49,10 +49,10 @@ func TestPublicURL(t *testing.T) {
 func TestPublicURL_TrailingSlash(t *testing.T) {
 	// Constructor trims trailing slash, but test the edge case directly
 	client := &Client{publicURL: "https://cdn.example.com"}
-	url := client.PublicURL("evt123/gst456/food.png")
+	url := client.PublicURL("events/evt123/guests/gst456/qr/food.png")
 
 	// Should NOT have double slash
-	if url != "https://cdn.example.com/evt123/gst456/food.png" {
+	if url != "https://cdn.example.com/events/evt123/guests/gst456/qr/food.png" {
 		t.Errorf("PublicURL trailing slash: got %q", url)
 	}
 
@@ -66,7 +66,7 @@ func TestPublicURL_TrailingSlash(t *testing.T) {
 
 func TestBuildEventPrefix(t *testing.T) {
 	prefix := BuildEventPrefix("evt123")
-	expected := "evt123/"
+	expected := "events/evt123/"
 	if prefix != expected {
 		t.Errorf("BuildEventPrefix: got %q, want %q", prefix, expected)
 	}
@@ -108,13 +108,13 @@ func TestBuildCardKey(t *testing.T) {
 			name:     "standard IDs",
 			eventID:  "evt123",
 			guestID:  "gst456",
-			expected: "evt123/gst456/card.png",
+			expected: "events/evt123/guests/gst456/cards/card.png",
 		},
 		{
 			name:     "Convex-style IDs",
 			eventID:  "jd7f2g3h4k5m6n",
 			guestID:  "km8n9p0q1r2s3t",
-			expected: "jd7f2g3h4k5m6n/km8n9p0q1r2s3t/card.png",
+			expected: "events/jd7f2g3h4k5m6n/guests/km8n9p0q1r2s3t/cards/card.png",
 		},
 	}
 

@@ -24,10 +24,35 @@ func newTestHandler(t *testing.T) (http.HandlerFunc, *redis.Client) {
 	return HandleEntryScan(svc), rdb
 }
 
-func postScan(handler http.HandlerFunc, body interface{}) *httptest.ResponseRecorder {
+func seedScannerSession(t *testing.T, rdb *redis.Client, eventID, stallID, vendorCategoryID, vendorType string) string {
+	t.Helper()
+	token := "test-session-token-" + vendorType + "-" + stallID
+	session := model.DeviceSession{
+		Token:            token,
+		StallID:          stallID,
+		EventID:          eventID,
+		VendorCategoryID: vendorCategoryID,
+		VendorTypeID:     "type_test",
+		VendorType:       vendorType,
+		CreatedAt:        time.Now().UTC(),
+	}
+	raw, err := json.Marshal(session)
+	if err != nil {
+		t.Fatalf("marshal session: %v", err)
+	}
+	if err := rdb.Set(context.Background(), "session:"+token, raw, time.Hour).Err(); err != nil {
+		t.Fatalf("seed session: %v", err)
+	}
+	return token
+}
+
+func postScan(handler http.HandlerFunc, body interface{}, sessionToken string) *httptest.ResponseRecorder {
 	jsonBody, _ := json.Marshal(body)
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/scan/entry", bytes.NewReader(jsonBody))
 	req.Header.Set("Content-Type", "application/json")
+	if sessionToken != "" {
+		req.Header.Set("Authorization", "Bearer "+sessionToken)
+	}
 	w := httptest.NewRecorder()
 	handler.ServeHTTP(w, req)
 	return w
@@ -37,13 +62,12 @@ func TestHandleEntryScan_200_ValidScan(t *testing.T) {
 	handler, rdb := newTestHandler(t)
 	guestID := "guest_h_valid"
 	seedTestGuest(t, rdb, testEventID, guestID, "Handler Valid", "vip")
+	sessionToken := seedScannerSession(t, rdb, testEventID, "stall_h1", "cat_h1", "entry")
 
 	payload := makeValidPayload(t, testEventID, guestID, qr.QRTypeEntry)
 	w := postScan(handler, ScanRequest{
 		QRPayload: payload,
-		StallID:   "stall_h1",
-		DeviceID:  "device_h1",
-	})
+	}, sessionToken)
 
 	if w.Code != http.StatusOK {
 		t.Errorf("expected 200, got %d: %s", w.Code, w.Body.String())
@@ -65,22 +89,19 @@ func TestHandleEntryScan_409_DuplicateScan(t *testing.T) {
 	handler, rdb := newTestHandler(t)
 	guestID := "guest_h_dup"
 	seedTestGuest(t, rdb, testEventID, guestID, "Handler Dup", "regular")
+	sessionToken := seedScannerSession(t, rdb, testEventID, "stall_h2", "cat_h2", "entry")
 
 	payload := makeValidPayload(t, testEventID, guestID, qr.QRTypeEntry)
-	req := ScanRequest{
-		QRPayload: payload,
-		StallID:   "stall_h2",
-		DeviceID:  "device_h2",
-	}
+	req := ScanRequest{QRPayload: payload}
 
 	// First scan
-	w1 := postScan(handler, req)
+	w1 := postScan(handler, req, sessionToken)
 	if w1.Code != http.StatusOK {
 		t.Fatalf("first scan expected 200, got %d", w1.Code)
 	}
 
 	// Second scan — duplicate
-	w2 := postScan(handler, req)
+	w2 := postScan(handler, req, sessionToken)
 	if w2.Code != http.StatusConflict {
 		t.Errorf("expected 409, got %d: %s", w2.Code, w2.Body.String())
 	}
@@ -102,9 +123,7 @@ func TestHandleEntryScan_400_EmptyPayload(t *testing.T) {
 
 	w := postScan(handler, ScanRequest{
 		QRPayload: "",
-		StallID:   "stall_h3",
-		DeviceID:  "device_h3",
-	})
+	}, "")
 
 	if w.Code != http.StatusBadRequest {
 		t.Errorf("expected 400, got %d: %s", w.Code, w.Body.String())
@@ -119,34 +138,22 @@ func TestHandleEntryScan_400_EmptyPayload(t *testing.T) {
 	}
 }
 
-func TestHandleEntryScan_400_MissingFields(t *testing.T) {
+func TestHandleEntryScan_401_MissingSessionToken(t *testing.T) {
 	handler, _ := newTestHandler(t)
 
 	payload := makeValidPayload(t, testEventID, "guest_missing_fields", qr.QRTypeEntry)
 
-	// Missing stall_id
 	w := postScan(handler, ScanRequest{
 		QRPayload: payload,
-		StallID:   "",
-		DeviceID:  "device_h4",
-	})
-	if w.Code != http.StatusBadRequest {
-		t.Errorf("expected 400 for missing stall_id, got %d", w.Code)
-	}
-
-	// Missing device_id
-	w2 := postScan(handler, ScanRequest{
-		QRPayload: payload,
-		StallID:   "stall_h4",
-		DeviceID:  "",
-	})
-	if w2.Code != http.StatusBadRequest {
-		t.Errorf("expected 400 for missing device_id, got %d", w2.Code)
+	}, "")
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("expected 401 for missing session token, got %d", w.Code)
 	}
 }
 
 func TestHandleEntryScan_401_InvalidSignature(t *testing.T) {
-	handler, _ := newTestHandler(t)
+	handler, rdb := newTestHandler(t)
+	sessionToken := seedScannerSession(t, rdb, testEventID, "stall_h5", "cat_h5", "entry")
 
 	// Encode with wrong secret
 	p := qr.Payload{
@@ -161,9 +168,7 @@ func TestHandleEntryScan_401_InvalidSignature(t *testing.T) {
 
 	w := postScan(handler, ScanRequest{
 		QRPayload: encoded,
-		StallID:   "stall_h5",
-		DeviceID:  "device_h5",
-	})
+	}, sessionToken)
 
 	if w.Code != http.StatusUnauthorized {
 		t.Errorf("expected 401, got %d: %s", w.Code, w.Body.String())
@@ -177,16 +182,15 @@ func TestHandleEntryScan_401_InvalidSignature(t *testing.T) {
 }
 
 func TestHandleEntryScan_404_GuestNotFound(t *testing.T) {
-	handler, _ := newTestHandler(t)
+	handler, rdb := newTestHandler(t)
+	sessionToken := seedScannerSession(t, rdb, testEventID, "stall_h6", "cat_h6", "entry")
 
 	// Valid HMAC but guest not seeded
 	payload := makeValidPayload(t, testEventID, "guest_h_missing", qr.QRTypeEntry)
 
 	w := postScan(handler, ScanRequest{
 		QRPayload: payload,
-		StallID:   "stall_h6",
-		DeviceID:  "device_h6",
-	})
+	}, sessionToken)
 
 	if w.Code != http.StatusNotFound {
 		t.Errorf("expected 404, got %d: %s", w.Code, w.Body.String())
@@ -203,15 +207,14 @@ func TestHandleEntryScan_422_WrongQRType(t *testing.T) {
 	handler, rdb := newTestHandler(t)
 	guestID := "guest_h_food"
 	seedTestGuest(t, rdb, testEventID, guestID, "Handler Food", "regular")
+	sessionToken := seedScannerSession(t, rdb, testEventID, "stall_h7", "cat_h7", "entry")
 
 	// Food QR at entry gate
 	payload := makeValidPayload(t, testEventID, guestID, qr.QRTypeFood)
 
 	w := postScan(handler, ScanRequest{
 		QRPayload: payload,
-		StallID:   "stall_h7",
-		DeviceID:  "device_h7",
-	})
+	}, sessionToken)
 
 	if w.Code != http.StatusUnprocessableEntity {
 		t.Errorf("expected 422, got %d: %s", w.Code, w.Body.String())

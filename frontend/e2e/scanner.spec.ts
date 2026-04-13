@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 
 test.describe("Scanner", () => {
-  test("scanner page renders without admin shell", async ({ page }) => {
+  test("central scanner shows event-specific link notice", async ({ page }) => {
     await page.goto("/scanner");
     await page.waitForLoadState("networkidle");
 
@@ -9,31 +9,23 @@ test.describe("Scanner", () => {
     const sidebar = page.locator("nav").filter({ hasText: "Events" });
     await expect(sidebar).not.toBeVisible();
 
-    // Scanner UI elements
-    await expect(
-      page.getByText(/select your station/i).or(page.getByText(/scanner/i)),
-    ).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByText(/use event-specific link/i)).toBeVisible({
+      timeout: 5_000,
+    });
+    await expect(page.getByText(/central scanner access is disabled/i)).toBeVisible({
+      timeout: 5_000,
+    });
   });
 
-  test("scanner shows event selection dropdown", async ({ page }) => {
-    await page.goto("/scanner");
-    await page.waitForLoadState("networkidle");
-
-    // Dropdown may show "Select an event" or a combobox role
-    await expect(
-      page.getByRole("combobox").first().or(page.getByText(/event/i).first()),
-    ).toBeVisible({ timeout: 5_000 });
-  });
-
-  test("start scanning button is disabled without selection", async ({
+  test("legacy /scanner/:eventId redirects to /:eventId/scanner", async ({
     page,
   }) => {
-    await page.goto("/scanner");
+    await page.goto("/scanner/test-event-id");
     await page.waitForLoadState("networkidle");
 
-    const startBtn = page.getByRole("button", { name: /start scanning/i });
-    if (await startBtn.isVisible({ timeout: 3_000 }).catch(() => false)) {
-      await expect(startBtn).toBeDisabled();
-    }
+    await expect(page).toHaveURL(/\/test-event-id\/scanner$/);
+    await expect(page.getByText(/select your station/i)).toBeVisible({
+      timeout: 5_000,
+    });
   });
 });

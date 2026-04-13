@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useAction, useQuery } from "convex/react";
+import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "convex/_generated/api";
 import type { Id } from "convex/_generated/dataModel";
 import { Card, CardContent } from "@/components/ui/card";
@@ -79,6 +79,7 @@ export function SMSDashboard({ eventId }: SMSDashboardProps) {
     "all" | "queued" | "sending" | "sent" | "delivered" | "failed"
   >("all");
   const [isSending, setIsSending] = useState(false);
+  const [isSavingTemplate, setIsSavingTemplate] = useState(false);
   const [messageTemplate, setMessageTemplate] = useState(DEFAULT_MESSAGE_TEMPLATE);
   const [progressCounts, setProgressCounts] = useState<
     SMSCounts | undefined
@@ -92,6 +93,8 @@ export function SMSDashboard({ eventId }: SMSDashboardProps) {
   const triggerSmsSend = useAction(api.adminGateway.triggerSmsSend);
   const triggerSmsRetryFailed = useAction(api.adminGateway.triggerSmsRetryFailed);
   const getSmsProgress = useAction(api.adminGateway.getSmsProgress);
+  const upsertSmsTemplate = useMutation(api.smsTemplates.upsertForEvent);
+  const persistedTemplate = useQuery(api.smsTemplates.getByEvent, { eventId });
   const deliveryRecords = useQuery(api.smsDeliveries.listByEvent, {
     eventId,
   });
@@ -115,13 +118,20 @@ export function SMSDashboard({ eventId }: SMSDashboardProps) {
   }, [eventId, getSmsProgress]);
 
   useEffect(() => {
+    if (persistedTemplate === undefined) {
+      return;
+    }
+    if (persistedTemplate?.messageTemplate?.trim()) {
+      setMessageTemplate(persistedTemplate.messageTemplate);
+      return;
+    }
     const savedTemplate = localStorage.getItem(templateStorageKey);
     if (savedTemplate?.trim()) {
       setMessageTemplate(savedTemplate);
-    } else {
-      setMessageTemplate(DEFAULT_MESSAGE_TEMPLATE);
+      return;
     }
-  }, [templateStorageKey]);
+    setMessageTemplate(DEFAULT_MESSAGE_TEMPLATE);
+  }, [persistedTemplate, templateStorageKey]);
 
   useEffect(() => {
     localStorage.setItem(templateStorageKey, messageTemplate);
@@ -205,9 +215,42 @@ export function SMSDashboard({ eventId }: SMSDashboardProps) {
       ? deliveries
       : deliveries?.filter((delivery) => delivery.status === statusFilter);
 
+  const saveTemplateToServer = useCallback(
+    async (showSuccessToast: boolean): Promise<boolean> => {
+      const trimmedTemplate = messageTemplate.trim();
+      if (!trimmedTemplate) {
+        toast.error("Message template is required");
+        return false;
+      }
+      setIsSavingTemplate(true);
+      try {
+        await upsertSmsTemplate({
+          eventId,
+          messageTemplate: trimmedTemplate,
+        });
+        if (showSuccessToast) {
+          toast.success("Template saved");
+        }
+        return true;
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Failed to save template";
+        toast.error(message);
+        return false;
+      } finally {
+        setIsSavingTemplate(false);
+      }
+    },
+    [eventId, messageTemplate, upsertSmsTemplate],
+  );
+
+  const handleSaveTemplate = useCallback(async () => {
+    await saveTemplateToServer(true);
+  }, [saveTemplateToServer]);
+
   const handleSend = useCallback(async () => {
-    if (!messageTemplate.trim()) {
-      toast.error("Message template is required");
+    const saved = await saveTemplateToServer(false);
+    if (!saved) {
       return;
     }
     setIsSending(true);
@@ -225,11 +268,17 @@ export function SMSDashboard({ eventId }: SMSDashboardProps) {
     } finally {
       setIsSending(false);
     }
-  }, [eventId, messageTemplate, refreshProgress, triggerSmsSend]);
+  }, [
+    eventId,
+    messageTemplate,
+    refreshProgress,
+    saveTemplateToServer,
+    triggerSmsSend,
+  ]);
 
   const handleRetryFailed = useCallback(async () => {
-    if (!messageTemplate.trim()) {
-      toast.error("Message template is required");
+    const saved = await saveTemplateToServer(false);
+    if (!saved) {
       return;
     }
     setIsSending(true);
@@ -247,7 +296,13 @@ export function SMSDashboard({ eventId }: SMSDashboardProps) {
     } finally {
       setIsSending(false);
     }
-  }, [eventId, messageTemplate, refreshProgress, triggerSmsRetryFailed]);
+  }, [
+    eventId,
+    messageTemplate,
+    refreshProgress,
+    saveTemplateToServer,
+    triggerSmsRetryFailed,
+  ]);
 
   // Empty state
   if (!counts && !isLoading) {
@@ -297,6 +352,16 @@ export function SMSDashboard({ eventId }: SMSDashboardProps) {
               <p className="rounded-md bg-muted px-3 py-2 text-xs break-all text-muted-foreground">
                 {templatePreview}
               </p>
+            </div>
+            <div className="flex justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={isSavingTemplate}
+                onClick={() => void handleSaveTemplate()}
+              >
+                {isSavingTemplate ? "Saving..." : "Save Template"}
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -407,6 +472,16 @@ export function SMSDashboard({ eventId }: SMSDashboardProps) {
             <p className="rounded-md bg-muted px-3 py-2 text-xs break-all text-muted-foreground">
               {templatePreview}
             </p>
+          </div>
+          <div className="flex justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={isSavingTemplate}
+              onClick={() => void handleSaveTemplate()}
+            >
+              {isSavingTemplate ? "Saving..." : "Save Template"}
+            </Button>
           </div>
         </CardContent>
       </Card>

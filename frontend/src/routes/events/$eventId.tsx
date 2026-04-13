@@ -108,7 +108,9 @@ function EventDetailPage() {
   }
 
   const isAdmin = myAccess?.isAdmin ?? false;
-  const permission = myAccess?.eventPermissions.find((entry) => entry.eventId === event._id);
+  const permission = (myAccess?.eventPermissions ?? []).find(
+    (entry) => entry.eventId === event._id,
+  );
   const canEditEvent = isAdmin || Boolean(permission?.canEdit);
   const canShowStatusMenu =
     (event.status === "active" && canEditEvent) ||

@@ -30,6 +30,7 @@ import type * as model_vendors from "../model/vendors.js";
 import type * as qr from "../qr.js";
 import type * as seed from "../seed.js";
 import type * as smsDeliveries from "../smsDeliveries.js";
+import type * as smsTemplates from "../smsTemplates.js";
 import type * as stalls from "../stalls.js";
 import type * as sync from "../sync.js";
 import type * as vendorCategories from "../vendorCategories.js";
@@ -65,6 +66,7 @@ declare const fullApi: ApiFromModules<{
   qr: typeof qr;
   seed: typeof seed;
   smsDeliveries: typeof smsDeliveries;
+  smsTemplates: typeof smsTemplates;
   stalls: typeof stalls;
   sync: typeof sync;
   vendorCategories: typeof vendorCategories;

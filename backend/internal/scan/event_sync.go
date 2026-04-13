@@ -13,12 +13,14 @@ type EventSyncRequest struct {
 	Type    string `json:"type"`
 	EventID string `json:"event_id"`
 	Event   struct {
-		ID           string `json:"id"`
-		Name         string `json:"name"`
-		Status       string `json:"status"`
-		QRStrategy   string `json:"qr_strategy"`
-		FoodQRMode   string `json:"food_qr_mode"`
-		FoodQRTiming string `json:"food_qr_timing"`
+		ID                     string `json:"id"`
+		Name                   string `json:"name"`
+		Status                 string `json:"status"`
+		QRStrategy             string `json:"qr_strategy"`
+		FoodQRMode             string `json:"food_qr_mode"`
+		FoodQRTiming           string `json:"food_qr_timing"`
+		AllowAdditionalGuests  bool   `json:"allow_additional_guests"`
+		MaxAdditionalGuests    int    `json:"max_additional_guests"`
 	} `json:"event"`
 	GuestCategories []EventGuestCategorySync `json:"guest_categories"`
 	FoodCategories  []EventFoodCategorySync  `json:"food_categories"`
@@ -93,13 +95,15 @@ func (s *Service) SyncEventDataset(ctx context.Context, req EventSyncRequest) er
 
 	pipe := s.redis.Pipeline()
 	pipe.HSet(ctx, eventKey, map[string]any{
-		"id":           req.Event.ID,
-		"name":         req.Event.Name,
-		"status":       req.Event.Status,
-		"qrStrategy":   req.Event.QRStrategy,
-		"foodQrMode":   req.Event.FoodQRMode,
-		"foodQrTiming": req.Event.FoodQRTiming,
-		"syncedAt":     time.Now().UTC().Format(time.RFC3339),
+		"id":                     req.Event.ID,
+		"name":                   req.Event.Name,
+		"status":                 req.Event.Status,
+		"qrStrategy":             req.Event.QRStrategy,
+		"foodQrMode":             req.Event.FoodQRMode,
+		"foodQrTiming":           req.Event.FoodQRTiming,
+		"allowAdditionalGuests":  strconv.FormatBool(req.Event.AllowAdditionalGuests),
+		"maxAdditionalGuests":    strconv.Itoa(req.Event.MaxAdditionalGuests),
+		"syncedAt":               time.Now().UTC().Format(time.RFC3339),
 	})
 	pipe.HSet(ctx, countersKey, "total_invited", totalInvited)
 	pipe.HSetNX(ctx, countersKey, "attendance", 0)

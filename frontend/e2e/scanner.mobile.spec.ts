@@ -14,8 +14,6 @@ test.describe("Scanner (Mobile Viewport)", () => {
     expect(bodyWidth).toBeLessThanOrEqual(viewportWidth + 5); // 5px tolerance
 
     // Key elements visible on mobile
-    await expect(
-      page.getByText(/select your station/i).or(page.getByText(/scanner/i)),
-    ).toBeVisible();
+    await expect(page.getByText(/use event-specific link/i)).toBeVisible();
   });
 });

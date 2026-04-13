@@ -52,8 +52,8 @@ func (h *SessionHandler) CreateSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.StallID == "" || req.EventID == "" || req.VendorCategoryID == "" || req.VendorTypeID == "" {
-		writeError(w, http.StatusBadRequest, "missing_fields", "All fields required: stallId, eventId, vendorCategoryId, vendorTypeId")
+	if req.StallID == "" || req.EventID == "" || req.VendorCategoryID == "" || req.VendorTypeID == "" || req.VendorType == "" {
+		writeError(w, http.StatusBadRequest, "missing_fields", "All fields required: stallId, eventId, vendorCategoryId, vendorTypeId, vendorType")
 		return
 	}
 	if req.VendorType != "" && req.VendorType != "entry" && req.VendorType != "food" {

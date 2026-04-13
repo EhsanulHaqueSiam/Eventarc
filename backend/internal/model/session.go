@@ -15,6 +15,7 @@ type DeviceSession struct {
 	EventID          string    `json:"eventId"`
 	VendorCategoryID string    `json:"vendorCategoryId"`
 	VendorTypeID     string    `json:"vendorTypeId"`
+	VendorType       string    `json:"vendorType"`
 	CreatedAt        time.Time `json:"createdAt"`
 }
 

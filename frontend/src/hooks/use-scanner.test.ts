@@ -69,7 +69,7 @@ describe("useScannerStore", () => {
     await act(async () => {
       await useScannerStore
         .getState()
-        .onConfirm("session-token", "stall-1", "entry");
+        .onConfirm({ sessionToken: "session-token", vendorType: "entry" });
     });
 
     const state = useScannerStore.getState();
@@ -98,14 +98,14 @@ describe("useScannerStore", () => {
     await act(async () => {
       await useScannerStore
         .getState()
-        .onConfirm("session-token", "stall-1", "food");
+        .onConfirm({ sessionToken: "session-token", vendorType: "food" });
     });
 
     expect(mockFetch).toHaveBeenCalledWith(
       expect.stringContaining("/api/v1/scan/food"),
       expect.objectContaining({
         method: "POST",
-        body: expect.stringContaining("stallId"),
+        body: expect.stringContaining("qr_payload"),
       }),
     );
 
@@ -124,7 +124,7 @@ describe("useScannerStore", () => {
     await act(async () => {
       await useScannerStore
         .getState()
-        .onConfirm("session-token", "stall-1", "entry");
+        .onConfirm({ sessionToken: "session-token", vendorType: "entry" });
     });
 
     const state = useScannerStore.getState();
@@ -149,7 +149,7 @@ describe("useScannerStore", () => {
     await act(async () => {
       await useScannerStore
         .getState()
-        .onConfirm("session-token", "stall-1", "entry");
+        .onConfirm({ sessionToken: "session-token", vendorType: "entry" });
     });
 
     expect(useScannerStore.getState().state).toBe("flash");
@@ -229,7 +229,7 @@ describe("useScannerStore", () => {
     await act(async () => {
       await useScannerStore
         .getState()
-        .onConfirm("session-token", "stall-1", "entry");
+        .onConfirm({ sessionToken: "session-token", vendorType: "entry" });
     });
 
     const state = useScannerStore.getState();
@@ -260,7 +260,7 @@ describe("useScannerStore", () => {
     await act(async () => {
       await useScannerStore
         .getState()
-        .onConfirm("session-token", "stall-1", "food");
+        .onConfirm({ sessionToken: "session-token", vendorType: "food" });
     });
 
     const state = useScannerStore.getState();

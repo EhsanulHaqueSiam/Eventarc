@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/ehsanul-haque-siam/eventarc/internal/convexsync"
 	"github.com/hibiken/asynq"
 )
 
@@ -19,13 +20,14 @@ const (
 
 // PGWritePayload is the asynq task payload for async PG writes.
 type PGWritePayload struct {
-	EventID       string `json:"event_id"`
-	GuestID       string `json:"guest_id"`
-	StallID       string `json:"stall_id"`
-	DeviceID      string `json:"device_id"`
-	ScannedAt     string `json:"scanned_at"` // ISO 8601
-	GuestCategory string `json:"guest_category"`
-	Status        string `json:"status"`
+	EventID          string `json:"event_id"`
+	GuestID          string `json:"guest_id"`
+	StallID          string `json:"stall_id"`
+	DeviceID         string `json:"device_id"`
+	ScannedAt        string `json:"scanned_at"` // ISO 8601
+	GuestCategory    string `json:"guest_category"`
+	Status           string `json:"status"`
+	AdditionalGuests int    `json:"additional_guests,omitempty"`
 }
 
 // ConvexSyncPayload is the asynq task payload for Convex sync-back.
@@ -78,13 +80,14 @@ func HandlePGWrite(pgStore *PGStore) asynq.HandlerFunc {
 		}
 
 		_, err = pgStore.InsertEntryScan(ctx, InsertParams{
-			EventID:       p.EventID,
-			GuestID:       p.GuestID,
-			StallID:       p.StallID,
-			DeviceID:      p.DeviceID,
-			ScannedAt:     scannedAt,
-			GuestCategory: p.GuestCategory,
-			Status:        p.Status,
+			EventID:          p.EventID,
+			GuestID:          p.GuestID,
+			StallID:          p.StallID,
+			DeviceID:         p.DeviceID,
+			ScannedAt:        scannedAt,
+			GuestCategory:    p.GuestCategory,
+			Status:           p.Status,
+			AdditionalGuests: p.AdditionalGuests,
 		})
 		if err != nil {
 			return fmt.Errorf("scan: pg write failed: %w", err)
@@ -100,18 +103,27 @@ func HandlePGWrite(pgStore *PGStore) asynq.HandlerFunc {
 }
 
 // HandleConvexSync processes the Convex sync-back task.
-// Placeholder — calls Convex HTTP action to update guest status.
-// Returns nil on success, error on failure (asynq retries).
-func HandleConvexSync() asynq.HandlerFunc {
+// It pushes accepted check-ins to Convex over HMAC-signed HTTP endpoints.
+func HandleConvexSync(convexClient *convexsync.Client) asynq.HandlerFunc {
 	return func(ctx context.Context, task *asynq.Task) error {
 		var p ConvexSyncPayload
 		if err := json.Unmarshal(task.Payload(), &p); err != nil {
 			return fmt.Errorf("scan: unmarshal convex-sync payload: %w", err)
 		}
 
-		// TODO: Call Convex HTTP action to update guest check-in status.
-		// Full implementation in Phase 9.
-		slog.Info("convex sync placeholder",
+		if convexClient == nil || !convexClient.IsConfigured() {
+			slog.Warn("convex sync skipped: client not configured",
+				"event_id", p.EventID,
+				"guest_id", p.GuestID,
+			)
+			return nil
+		}
+
+		if err := convexClient.SyncGuestCheckIn(ctx, p.EventID, p.GuestID, p.ScannedAt); err != nil {
+			return fmt.Errorf("scan: convex sync failed: %w", err)
+		}
+
+		slog.Info("scan synced to Convex",
 			"event_id", p.EventID,
 			"guest_id", p.GuestID,
 			"status", p.Status,

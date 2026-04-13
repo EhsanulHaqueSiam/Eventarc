@@ -2,13 +2,19 @@ import type { ScanOutcome, ServerResponse } from "@/hooks/use-scanner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { CheckCircle, XCircle, AlertTriangle } from "lucide-react";
+import { Input } from "@/components/ui/input";
 
 interface ScanResultCardProps {
+  scanType: "entry" | "food";
+  allowAdditionalGuests: boolean;
+  maxAdditionalGuests: number;
+  additionalGuests: number;
+  onAdditionalGuestsChange: (value: number) => void;
   outcome: ScanOutcome | null;
   serverResponse: ServerResponse | null;
   qrPayload: string;
   isConfirming: boolean;
-  onConfirm: () => void;
+  onConfirm: (additionalGuests: number) => void;
   onDismiss: () => void;
 }
 
@@ -50,6 +56,12 @@ const outcomeConfig: Record<
     iconColor: "text-[oklch(0.82_0.17_85)]",
     borderColor: "border-l-[oklch(0.82_0.17_85)]",
     heading: "Already Served",
+  },
+  network_error: {
+    icon: AlertTriangle,
+    iconColor: "text-[oklch(0.82_0.17_85)]",
+    borderColor: "border-l-[oklch(0.82_0.17_85)]",
+    heading: "Network Error",
   },
 };
 
@@ -127,12 +139,23 @@ function ResultBody({
             )}
         </div>
       );
+    case "network_error":
+      return (
+        <p className="text-base text-foreground">
+          {response.reason ?? "Could not reach server. Please retry."}
+        </p>
+      );
     default:
       return null;
   }
 }
 
 export function ScanResultCard({
+  scanType,
+  allowAdditionalGuests,
+  maxAdditionalGuests,
+  additionalGuests,
+  onAdditionalGuestsChange,
   outcome,
   serverResponse,
   qrPayload,
@@ -167,6 +190,41 @@ export function ScanResultCard({
               {qrPayload.substring(0, 40)}
               {qrPayload.length > 40 ? "..." : ""}
             </p>
+            {scanType === "entry" && allowAdditionalGuests && (
+              <div className="space-y-2 rounded-lg border bg-muted/20 p-3">
+                <label
+                  htmlFor="additional-guests"
+                  className="text-sm font-medium text-foreground"
+                >
+                  Additional Guests
+                </label>
+                <Input
+                  id="additional-guests"
+                  type="number"
+                  min={0}
+                  max={maxAdditionalGuests >= 0 ? maxAdditionalGuests : undefined}
+                  value={additionalGuests}
+                  onChange={(event) => {
+                    const parsed = Number.parseInt(event.target.value, 10);
+                    if (!Number.isFinite(parsed) || parsed < 0) {
+                      onAdditionalGuestsChange(0);
+                      return;
+                    }
+                    if (maxAdditionalGuests >= 0) {
+                      onAdditionalGuestsChange(Math.min(parsed, maxAdditionalGuests));
+                      return;
+                    }
+                    onAdditionalGuestsChange(parsed);
+                  }}
+                  disabled={isConfirming}
+                />
+                <p className="text-xs text-muted-foreground">
+                  {maxAdditionalGuests < 0
+                    ? "Unlimited additional guests allowed"
+                    : `Up to ${maxAdditionalGuests} additional guests allowed`}
+                </p>
+              </div>
+            )}
             <div className="flex gap-3 pt-2" style={{ minHeight: "80px" }}>
               <Button
                 variant="secondary"
@@ -179,7 +237,7 @@ export function ScanResultCard({
               </Button>
               <Button
                 className="h-14 flex-1 text-base"
-                onClick={onConfirm}
+                onClick={() => onConfirm(additionalGuests)}
                 disabled={isConfirming}
                 aria-label="Confirm scan"
               >

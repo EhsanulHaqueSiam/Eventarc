@@ -9,16 +9,17 @@ import (
 )
 
 type EntryScan struct {
-	ID             pgtype.UUID        `json:"id"`
-	IdempotencyKey string             `json:"idempotency_key"`
-	EventID        string             `json:"event_id"`
-	GuestID        string             `json:"guest_id"`
-	StallID        string             `json:"stall_id"`
-	ScannedAt      pgtype.Timestamptz `json:"scanned_at"`
-	SyncedAt       pgtype.Timestamptz `json:"synced_at"`
-	DeviceID       string             `json:"device_id"`
-	Status         string             `json:"status"`
-	GuestCategory  string             `json:"guest_category"`
+	ID               pgtype.UUID        `json:"id"`
+	IdempotencyKey   string             `json:"idempotency_key"`
+	EventID          string             `json:"event_id"`
+	GuestID          string             `json:"guest_id"`
+	StallID          string             `json:"stall_id"`
+	ScannedAt        pgtype.Timestamptz `json:"scanned_at"`
+	SyncedAt         pgtype.Timestamptz `json:"synced_at"`
+	DeviceID         string             `json:"device_id"`
+	Status           string             `json:"status"`
+	GuestCategory    string             `json:"guest_category"`
+	AdditionalGuests int32              `json:"additional_guests"`
 }
 
 type EventCounter struct {

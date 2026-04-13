@@ -24,10 +24,13 @@ func newTestFoodHandler(t *testing.T) (http.HandlerFunc, *redis.Client) {
 	return HandleFoodScan(svc), rdb
 }
 
-func postFoodScan(handler http.HandlerFunc, body interface{}) *httptest.ResponseRecorder {
+func postFoodScan(handler http.HandlerFunc, body interface{}, sessionToken string) *httptest.ResponseRecorder {
 	jsonBody, _ := json.Marshal(body)
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/scan/food", bytes.NewReader(jsonBody))
 	req.Header.Set("Content-Type", "application/json")
+	if sessionToken != "" {
+		req.Header.Set("Authorization", "Bearer "+sessionToken)
+	}
 	w := httptest.NewRecorder()
 	handler.ServeHTTP(w, req)
 	return w
@@ -44,14 +47,12 @@ func TestHandleFoodScan_ValidScan(t *testing.T) {
 	seedFoodRules(t, rdb, testEventID, map[string]int{
 		"cat_vip:fcat_fuchka": 5,
 	})
+	sessionToken := seedScannerSession(t, rdb, testEventID, "stall_hf1", "fcat_fuchka", "food")
 
 	payload := makeValidPayload(t, testEventID, guestID, qr.QRTypeFood)
 	w := postFoodScan(handler, FoodScanRequest{
-		QRPayload:      payload,
-		StallID:        "stall_hf1",
-		DeviceID:       "dev_hf1",
-		FoodCategoryID: "fcat_fuchka",
-	})
+		QRPayload: payload,
+	}, sessionToken)
 
 	if w.Code != http.StatusOK {
 		t.Errorf("expected 200, got %d: %s", w.Code, w.Body.String())
@@ -83,6 +84,7 @@ func TestHandleFoodScan_LimitReached(t *testing.T) {
 	seedFoodRules(t, rdb, testEventID, map[string]int{
 		"cat_general:fcat_fuchka": 1,
 	})
+	sessionToken := seedScannerSession(t, rdb, testEventID, "stall_hf2", "fcat_fuchka", "food")
 
 	// Pre-populate as already consumed
 	rdb.HSet(ctx, "food:"+testEventID+":"+guestID, "fcat_fuchka", 1)
@@ -90,11 +92,8 @@ func TestHandleFoodScan_LimitReached(t *testing.T) {
 
 	payload := makeValidPayload(t, testEventID, guestID, qr.QRTypeFood)
 	w := postFoodScan(handler, FoodScanRequest{
-		QRPayload:      payload,
-		StallID:        "stall_hf2",
-		DeviceID:       "dev_hf2",
-		FoodCategoryID: "fcat_fuchka",
-	})
+		QRPayload: payload,
+	}, sessionToken)
 
 	if w.Code != http.StatusOK {
 		t.Errorf("expected 200 for limit_reached, got %d: %s", w.Code, w.Body.String())
@@ -112,73 +111,34 @@ func TestHandleFoodScan_LimitReached(t *testing.T) {
 	}
 }
 
-func TestHandleFoodScan_MissingFields(t *testing.T) {
+func TestHandleFoodScan_401_MissingSessionToken(t *testing.T) {
 	handler, _ := newTestFoodHandler(t)
 
 	payload := makeValidPayload(t, testEventID, "guest_hf_fields", qr.QRTypeFood)
 
-	// Missing food_category_id
 	w := postFoodScan(handler, FoodScanRequest{
-		QRPayload:      payload,
-		StallID:        "stall_hf3",
-		DeviceID:       "dev_hf3",
-		FoodCategoryID: "",
-	})
-	if w.Code != http.StatusBadRequest {
-		t.Errorf("expected 400 for missing food_category_id, got %d: %s", w.Code, w.Body.String())
-	}
-
-	var errResp model.ErrorResponse
-	if err := json.NewDecoder(w.Body).Decode(&errResp); err != nil {
-		t.Fatalf("failed to decode error: %v", err)
-	}
-	if errResp.Error.Code != "BAD_REQUEST" {
-		t.Errorf("expected code 'BAD_REQUEST', got %q", errResp.Error.Code)
-	}
-
-	// Missing stall_id
-	w2 := postFoodScan(handler, FoodScanRequest{
-		QRPayload:      payload,
-		StallID:        "",
-		DeviceID:       "dev_hf3",
-		FoodCategoryID: "fcat_fuchka",
-	})
-	if w2.Code != http.StatusBadRequest {
-		t.Errorf("expected 400 for missing stall_id, got %d", w2.Code)
-	}
-
-	// Missing device_id
-	w3 := postFoodScan(handler, FoodScanRequest{
-		QRPayload:      payload,
-		StallID:        "stall_hf3",
-		DeviceID:       "",
-		FoodCategoryID: "fcat_fuchka",
-	})
-	if w3.Code != http.StatusBadRequest {
-		t.Errorf("expected 400 for missing device_id, got %d", w3.Code)
+		QRPayload: payload,
+	}, "")
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("expected 401 for missing session token, got %d: %s", w.Code, w.Body.String())
 	}
 
 	// Missing qr_payload
 	w4 := postFoodScan(handler, FoodScanRequest{
-		QRPayload:      "",
-		StallID:        "stall_hf3",
-		DeviceID:       "dev_hf3",
-		FoodCategoryID: "fcat_fuchka",
-	})
+		QRPayload: "",
+	}, "")
 	if w4.Code != http.StatusBadRequest {
 		t.Errorf("expected 400 for missing qr_payload, got %d", w4.Code)
 	}
 }
 
 func TestHandleFoodScan_InvalidQR(t *testing.T) {
-	handler, _ := newTestFoodHandler(t)
+	handler, rdb := newTestFoodHandler(t)
+	sessionToken := seedScannerSession(t, rdb, testEventID, "stall_hf4", "fcat_fuchka", "food")
 
 	w := postFoodScan(handler, FoodScanRequest{
-		QRPayload:      "not-a-valid-qr-payload-!!!",
-		StallID:        "stall_hf4",
-		DeviceID:       "dev_hf4",
-		FoodCategoryID: "fcat_fuchka",
-	})
+		QRPayload: "not-a-valid-qr-payload-!!!",
+	}, sessionToken)
 
 	if w.Code != http.StatusBadRequest {
 		t.Errorf("expected 400, got %d: %s", w.Code, w.Body.String())
@@ -192,7 +152,8 @@ func TestHandleFoodScan_InvalidQR(t *testing.T) {
 }
 
 func TestHandleFoodScan_ForgedQR(t *testing.T) {
-	handler, _ := newTestFoodHandler(t)
+	handler, rdb := newTestFoodHandler(t)
+	sessionToken := seedScannerSession(t, rdb, testEventID, "stall_hf5", "fcat_fuchka", "food")
 
 	// Encode with wrong secret
 	p := qr.Payload{
@@ -206,11 +167,8 @@ func TestHandleFoodScan_ForgedQR(t *testing.T) {
 	encoded, _ := qr.EncodePayload(p, wrongSecret)
 
 	w := postFoodScan(handler, FoodScanRequest{
-		QRPayload:      encoded,
-		StallID:        "stall_hf5",
-		DeviceID:       "dev_hf5",
-		FoodCategoryID: "fcat_fuchka",
-	})
+		QRPayload: encoded,
+	}, sessionToken)
 
 	if w.Code != http.StatusUnauthorized {
 		t.Errorf("expected 401, got %d: %s", w.Code, w.Body.String())
@@ -229,16 +187,14 @@ func TestHandleFoodScan_WrongQRType(t *testing.T) {
 
 	seedEventConfig(t, rdb, testEventID, "guestLinked")
 	seedTestGuest(t, rdb, testEventID, guestID, "Wrong Type Guest", "cat_vip")
+	sessionToken := seedScannerSession(t, rdb, testEventID, "stall_hf6", "fcat_fuchka", "food")
 
 	// Entry QR at food stall
 	payload := makeValidPayload(t, testEventID, guestID, qr.QRTypeEntry)
 
 	w := postFoodScan(handler, FoodScanRequest{
-		QRPayload:      payload,
-		StallID:        "stall_hf6",
-		DeviceID:       "dev_hf6",
-		FoodCategoryID: "fcat_fuchka",
-	})
+		QRPayload: payload,
+	}, sessionToken)
 
 	if w.Code != http.StatusUnprocessableEntity {
 		t.Errorf("expected 422, got %d: %s", w.Code, w.Body.String())
@@ -256,15 +212,13 @@ func TestHandleFoodScan_GuestNotFound(t *testing.T) {
 
 	seedEventConfig(t, rdb, testEventID, "guestLinked")
 	// Guest NOT seeded
+	sessionToken := seedScannerSession(t, rdb, testEventID, "stall_hf7", "fcat_fuchka", "food")
 
 	payload := makeValidPayload(t, testEventID, "guest_hf_missing", qr.QRTypeFood)
 
 	w := postFoodScan(handler, FoodScanRequest{
-		QRPayload:      payload,
-		StallID:        "stall_hf7",
-		DeviceID:       "dev_hf7",
-		FoodCategoryID: "fcat_fuchka",
-	})
+		QRPayload: payload,
+	}, sessionToken)
 
 	if w.Code != http.StatusNotFound {
 		t.Errorf("expected 404, got %d: %s", w.Code, w.Body.String())

@@ -118,6 +118,10 @@ export function ScannerSetup({
 
   const handleStartScanning = async () => {
     if (!allSelected || !selectedVendorTypeName) return;
+    if (selectedVendorTypeName !== "entry" && selectedVendorTypeName !== "food") {
+      toast.error("Invalid station type selected.");
+      return;
+    }
     setIsCreating(true);
     try {
       const success = await createSession({

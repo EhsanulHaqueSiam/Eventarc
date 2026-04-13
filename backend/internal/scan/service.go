@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/hibiken/asynq"
@@ -13,6 +14,11 @@ import (
 	"github.com/ehsanul-haque-siam/eventarc/internal/convexsync"
 	"github.com/ehsanul-haque-siam/eventarc/internal/model"
 	"github.com/ehsanul-haque-siam/eventarc/internal/qr"
+)
+
+var (
+	ErrAdditionalGuestsNotAllowed    = errors.New("additional guests are not allowed for this event")
+	ErrAdditionalGuestsLimitExceeded = errors.New("additional guests exceed configured limit")
 )
 
 // Service handles entry scan processing with atomic Redis operations.
@@ -75,6 +81,11 @@ func (s *Service) ProcessEntryScan(ctx context.Context, req ScanRequest) (ScanRe
 		return ScanResult{}, err
 	}
 
+	additionalGuestAllowed, maxAdditionalGuests, err := s.getAdditionalGuestPolicy(ctx, payload.EventID)
+	if err != nil {
+		return ScanResult{}, err
+	}
+
 	// Step 3: Lookup guest in Redis
 	guestKey := GuestKey(payload.EventID, payload.GuestID)
 	guestData, err := s.redis.HGetAll(ctx, guestKey).Result()
@@ -114,12 +125,52 @@ func (s *Service) ProcessEntryScan(ctx context.Context, req ScanRequest) (ScanRe
 
 	now := time.Now().UTC().Format(time.RFC3339)
 
+	additionalGuests := req.AdditionalGuests
+	if additionalGuests < 0 {
+		additionalGuests = 0
+	}
+	if additionalGuests > 0 && !additionalGuestAllowed {
+		return ScanResult{}, ErrAdditionalGuestsNotAllowed
+	}
+	if !additionalGuestAllowed {
+		additionalGuests = 0
+	}
+	if additionalGuestAllowed && maxAdditionalGuests >= 0 && additionalGuests > maxAdditionalGuests {
+		return ScanResult{}, fmt.Errorf(
+			"%w: requested %d, max %d",
+			ErrAdditionalGuestsLimitExceeded,
+			additionalGuests,
+			maxAdditionalGuests,
+		)
+	}
+
 	result, err := checkInScript.Run(ctx, s.redis,
 		[]string{checkedInKey, checkInKey, countersKey},
-		payload.GuestID, now, req.StallID, req.DeviceID, guestCategory,
+		payload.GuestID, now, req.StallID, req.DeviceID, guestCategory, additionalGuests,
 	).Text()
 	if err != nil {
 		return ScanResult{}, fmt.Errorf("redis check-in script failed: %w", err)
+	}
+	if result == "DUPLICATE" {
+		_ = s.redis.HIncrBy(ctx, countersKey, "scans_total", 1).Err()
+		_ = s.redis.HIncrBy(ctx, countersKey, "scans_duplicate", 1).Err()
+		s.publishCounterUpdate(ctx, payload.EventID, "scans_total", "scans_duplicate")
+
+		original, detailsErr := s.GetCheckInDetails(ctx, payload.EventID, payload.GuestID)
+		if detailsErr != nil {
+			return ScanResult{}, fmt.Errorf("read duplicate check-in details: %w", detailsErr)
+		}
+
+		return ScanResult{
+			Status:  "duplicate",
+			Guest:   guest,
+			Message: "Already checked in",
+			Original: &ScanInfo{
+				CheckedInAt: original.Timestamp,
+				StallID:     original.StallID,
+				DeviceID:    original.DeviceID,
+			},
+		}, nil
 	}
 	if result != "OK" {
 		return ScanResult{}, fmt.Errorf("unexpected redis check-in result: %s", result)
@@ -133,13 +184,14 @@ func (s *Service) ProcessEntryScan(ctx context.Context, req ScanRequest) (ScanRe
 
 	if err := s.persistEntryScanDurably(ctx,
 		PGWritePayload{
-			EventID:       payload.EventID,
-			GuestID:       payload.GuestID,
-			StallID:       req.StallID,
-			DeviceID:      req.DeviceID,
-			ScannedAt:     now,
-			GuestCategory: guestCategory,
-			Status:        "valid",
+			EventID:          payload.EventID,
+			GuestID:          payload.GuestID,
+			StallID:          req.StallID,
+			DeviceID:         req.DeviceID,
+			ScannedAt:        now,
+			GuestCategory:    guestCategory,
+			Status:           "valid",
+			AdditionalGuests: additionalGuests,
 		},
 		ConvexSyncPayload{
 			EventID:   payload.EventID,
@@ -153,14 +205,42 @@ func (s *Service) ProcessEntryScan(ctx context.Context, req ScanRequest) (ScanRe
 
 	// Valid new check-in
 	return ScanResult{
-		Status: "valid",
-		Guest:  guest,
+		Status:           "valid",
+		Guest:            guest,
+		AdditionalGuests: additionalGuests,
+		TotalPersons:     1 + additionalGuests,
 		Scan: &ScanInfo{
 			CheckedInAt: now,
 			StallID:     req.StallID,
 			DeviceID:    req.DeviceID,
 		},
 	}, nil
+}
+
+func (s *Service) getAdditionalGuestPolicy(ctx context.Context, eventID string) (bool, int, error) {
+	values, err := s.redis.HMGet(
+		ctx,
+		EventKey(eventID),
+		"allowAdditionalGuests",
+		"maxAdditionalGuests",
+	).Result()
+	if err != nil {
+		return false, 0, fmt.Errorf("read event additional guest policy: %w", err)
+	}
+
+	allow := false
+	max := 0
+	if len(values) > 0 && values[0] != nil {
+		if parsed, parseErr := strconv.ParseBool(fmt.Sprint(values[0])); parseErr == nil {
+			allow = parsed
+		}
+	}
+	if len(values) > 1 && values[1] != nil {
+		if parsed, parseErr := strconv.Atoi(fmt.Sprint(values[1])); parseErr == nil {
+			max = parsed
+		}
+	}
+	return allow, max, nil
 }
 
 // GetCheckInDetails retrieves the original check-in timestamp and location for

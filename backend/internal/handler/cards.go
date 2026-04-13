@@ -20,9 +20,11 @@ const (
 
 // CardCompositeBatchPayload is the payload for the batch orchestrator task.
 type CardCompositeBatchPayload struct {
-	EventID            string        `json:"eventId"`
-	BackgroundImageKey string        `json:"backgroundImageKey"`
-	OverlayConfig      OverlayParam  `json:"overlayConfig"`
+	EventID            string       `json:"eventId"`
+	TemplateID         string       `json:"templateId,omitempty"`
+	BackgroundImageKey string       `json:"backgroundImageKey"`
+	BackgroundImageURL string       `json:"backgroundImageUrl,omitempty"`
+	OverlayConfig      OverlayParam `json:"overlayConfig"`
 }
 
 // OverlayParam represents the QR overlay position/size from the request.
@@ -37,6 +39,7 @@ type OverlayParam struct {
 type CompositeRequest struct {
 	TemplateID         string       `json:"templateId"`
 	BackgroundImageKey string       `json:"backgroundImageKey"`
+	BackgroundImageURL string       `json:"backgroundImageUrl,omitempty"`
 	QROverlay          OverlayParam `json:"qrOverlay"`
 }
 
@@ -127,7 +130,9 @@ func (h *CardHandler) HandleCompositeCards(w http.ResponseWriter, r *http.Reques
 	// Create and enqueue batch task
 	payload := CardCompositeBatchPayload{
 		EventID:            eventID,
+		TemplateID:         req.TemplateID,
 		BackgroundImageKey: req.BackgroundImageKey,
+		BackgroundImageURL: req.BackgroundImageURL,
 		OverlayConfig:      req.QROverlay,
 	}
 	payloadBytes, err := json.Marshal(payload)

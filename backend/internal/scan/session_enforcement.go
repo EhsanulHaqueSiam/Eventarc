@@ -35,8 +35,6 @@ func (s *Service) validateScanSession(
 	ctx context.Context,
 	token string,
 	expectedVendorType string,
-	stallID string,
-	foodCategoryID string,
 ) (*model.DeviceSession, error) {
 	if strings.TrimSpace(token) == "" {
 		return nil, ErrSessionTokenMissing
@@ -62,18 +60,11 @@ func (s *Service) validateScanSession(
 	if session.EventID == "" || session.StallID == "" {
 		return nil, ErrInvalidSession
 	}
-	if session.StallID != stallID {
+	if expectedVendorType != "" && session.VendorType != expectedVendorType {
 		return nil, ErrSessionScopeMismatch
 	}
-	if expectedVendorType != "" &&
-		session.VendorType != "" &&
-		session.VendorType != expectedVendorType {
-		return nil, ErrSessionScopeMismatch
-	}
-	if foodCategoryID != "" &&
-		session.VendorCategoryID != "" &&
-		session.VendorCategoryID != foodCategoryID {
-		return nil, ErrSessionScopeMismatch
+	if expectedVendorType == "food" && strings.TrimSpace(session.VendorCategoryID) == "" {
+		return nil, ErrInvalidSession
 	}
 
 	return &session, nil

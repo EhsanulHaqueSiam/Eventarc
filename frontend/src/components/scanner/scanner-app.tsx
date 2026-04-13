@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
+import { useQuery } from "convex/react";
+import { api } from "convex/_generated/api";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Camera } from "lucide-react";
@@ -32,7 +34,10 @@ import { useOfflineScannerStore } from "@/stores/scanner-store";
 
 export function ScannerApp({ fixedEventId }: { fixedEventId?: string }) {
   const { token, session, isLoading, isRevoked, createSession, clearSession } =
-    useDeviceSession(fixedEventId);
+    useDeviceSession(fixedEventId, {
+      // Event-specific links should always require explicit station selection.
+      disableStoredSessionRestore: Boolean(fixedEventId),
+    });
 
   if (isLoading) {
     return (
@@ -81,6 +86,7 @@ function ActiveScanner({
   token: string;
   onChangeStation: () => void;
 }) {
+  const liveEvents = useQuery(api.events.list, { status: "live" });
   const state = useScannerStore((s) => s.state);
   const scanResult = useScannerStore((s) => s.scanResult);
   const serverResponse = useScannerStore((s) => s.serverResponse);
@@ -98,6 +104,11 @@ function ActiveScanner({
   const setPendingCount = useOfflineScannerStore((s) => s.setPendingCount);
   const [pendingPanelOpen, setPendingPanelOpen] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
+  const [additionalGuests, setAdditionalGuests] = useState(0);
+
+  const eventConfig = liveEvents?.find((event) => event._id === session.eventId)?.config;
+  const allowAdditionalGuests = Boolean(eventConfig?.allowAdditionalGuests);
+  const maxAdditionalGuests = eventConfig?.maxAdditionalGuests ?? 0;
 
   useEffect(() => {
     let mounted = true;
@@ -114,6 +125,12 @@ function ActiveScanner({
       mounted = false;
     };
   }, [setPendingCount]);
+
+  useEffect(() => {
+    if (state === "reviewing") {
+      setAdditionalGuests(0);
+    }
+  }, [state]);
 
   // Play audio cue when flash starts
   useEffect(() => {
@@ -135,21 +152,16 @@ function ActiveScanner({
     }
   }, [state, serverResponse, playSuccess, playFailure, playDuplicate]);
 
-  const handleConfirm = useCallback(() => {
-    onConfirm(
-      token,
-      session.eventId,
-      session.stallId,
-      session.vendorType,
-      session.vendorCategoryId,
-    );
+  const handleConfirm = useCallback((extraGuests: number) => {
+    onConfirm({
+      sessionToken: token,
+      vendorType: session.vendorType,
+      additionalGuests: extraGuests,
+    });
   }, [
     onConfirm,
     token,
-    session.eventId,
-    session.stallId,
     session.vendorType,
-    session.vendorCategoryId,
   ]);
 
   const cameraActive = state === "idle";
@@ -262,6 +274,10 @@ function ActiveScanner({
       {showResultCard && (
         <ScanResultCard
           scanType={session.vendorType}
+          allowAdditionalGuests={allowAdditionalGuests}
+          maxAdditionalGuests={maxAdditionalGuests}
+          additionalGuests={additionalGuests}
+          onAdditionalGuestsChange={setAdditionalGuests}
           outcome={serverResponse?.outcome ?? null}
           serverResponse={serverResponse}
           qrPayload={scanResult?.qrPayload ?? ""}

@@ -198,10 +198,8 @@ export function StepConfirm({ eventId }: StepConfirmProps) {
           )}
         </div>
 
-        <Button asChild>
-          <Link to="/events/$eventId/guests" params={{ eventId }}>
-            Go to Guest List
-          </Link>
+        <Button render={<Link to="/events/$eventId/guests" params={{ eventId }} />}>
+          Go to Guest List
         </Button>
       </div>
     );

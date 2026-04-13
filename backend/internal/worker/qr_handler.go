@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strconv"
+	"strings"
 
 	"github.com/hibiken/asynq"
 	"github.com/redis/go-redis/v9"
@@ -200,12 +201,24 @@ func (h *QRHandler) checkAndFinalizeProgress(ctx context.Context, eventID string
 	}
 }
 
-// fetchGuestIDs retrieves the list of guest IDs for the given event.
-// Phase 3 stub: returns empty — real implementation will call Convex HTTP
-// endpoint in Phase 4 integration.
-func (h *QRHandler) fetchGuestIDs(_ context.Context, eventID string) []string {
-	// TODO (Phase 4): Call Convex HTTP endpoint to fetch guest IDs
-	// e.g., GET {CONVEX_SITE_URL}/api/guests?eventId={eventID}
-	h.logger.Info("fetchGuestIDs stub called", "eventId", eventID)
-	return []string{}
+// fetchGuestIDs retrieves the list of guest IDs for the given event from Redis
+// cache keys synced by /api/v1/sync/event.
+func (h *QRHandler) fetchGuestIDs(ctx context.Context, eventID string) []string {
+	pattern := fmt.Sprintf("guest:%s:*", eventID)
+	iter := h.redisClient.Scan(ctx, 0, pattern, 1000).Iterator()
+	ids := make([]string, 0, 2048)
+
+	for iter.Next(ctx) {
+		key := iter.Val()
+		idx := strings.LastIndex(key, ":")
+		if idx == -1 || idx >= len(key)-1 {
+			continue
+		}
+		ids = append(ids, key[idx+1:])
+	}
+	if err := iter.Err(); err != nil {
+		h.logger.Error("failed to scan guest IDs from redis", "eventId", eventID, "error", err)
+		return nil
+	}
+	return ids
 }

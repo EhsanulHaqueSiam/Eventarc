@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Separator } from "@/components/ui/separator";
 import { Plus } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 
 export function CreateEventDialog() {
@@ -28,6 +29,8 @@ export function CreateEventDialog() {
   const [qrStrategy, setQrStrategy] = useState<"unified" | "separate">("unified");
   const [foodQrMode, setFoodQrMode] = useState<"guestLinked" | "anonymous">("guestLinked");
   const [foodQrTiming, setFoodQrTiming] = useState<"preSent" | "postEntry">("preSent");
+  const [allowAdditionalGuests, setAllowAdditionalGuests] = useState(false);
+  const [maxAdditionalGuests, setMaxAdditionalGuests] = useState<number>(-1);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const isValid = name.trim().length > 0 && date.length > 0 && new Date(date) > new Date();
@@ -41,7 +44,13 @@ export function CreateEventDialog() {
         eventDate: new Date(date).getTime(),
         venue: venue.trim() || undefined,
         description: description.trim() || undefined,
-        config: { qrStrategy, foodQrMode, foodQrTiming },
+        config: {
+          qrStrategy,
+          foodQrMode,
+          foodQrTiming,
+          allowAdditionalGuests: allowAdditionalGuests || undefined,
+          maxAdditionalGuests: allowAdditionalGuests ? maxAdditionalGuests : undefined,
+        },
       });
       toast.success("Event created");
       setOpen(false);
@@ -64,6 +73,8 @@ export function CreateEventDialog() {
     setQrStrategy("unified");
     setFoodQrMode("guestLinked");
     setFoodQrTiming("preSent");
+    setAllowAdditionalGuests(false);
+    setMaxAdditionalGuests(-1);
   };
 
   return (
@@ -180,6 +191,40 @@ export function CreateEventDialog() {
                 ? "Food QR sent with invitation before event"
                 : "Food QR generated after guest checks in"}
             </p>
+          </div>
+
+          <Separator />
+
+          <div>
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="text-sm font-medium">Allow Additional Guests</h4>
+                <p className="text-xs text-muted-foreground">
+                  Entry scanners can record extra persons accompanying the invited guest
+                </p>
+              </div>
+              <Switch
+                checked={allowAdditionalGuests}
+                onCheckedChange={setAllowAdditionalGuests}
+              />
+            </div>
+            {allowAdditionalGuests && (
+              <div className="mt-3">
+                <label className="text-sm font-medium">
+                  Max additional guests per invite
+                </label>
+                <Input
+                  type="number"
+                  min={-1}
+                  value={maxAdditionalGuests}
+                  onChange={(e) => setMaxAdditionalGuests(Number(e.target.value))}
+                  className="mt-1 w-32"
+                />
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {maxAdditionalGuests === -1 ? "Unlimited" : `Up to ${maxAdditionalGuests} extra guests`}
+                </p>
+              </div>
+            )}
           </div>
         </div>
         <DialogFooter>

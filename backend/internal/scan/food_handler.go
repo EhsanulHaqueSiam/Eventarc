@@ -32,24 +32,28 @@ func HandleFoodScan(svc *Service) http.HandlerFunc {
 			writeErrorJSON(w, http.StatusBadRequest, "BAD_REQUEST", "Invalid request body")
 			return
 		}
+		req.Normalize()
 
 		// Validate required fields
 		if req.QRPayload == "" {
 			writeErrorJSON(w, http.StatusBadRequest, "BAD_REQUEST", "Missing required field: qr_payload")
 			return
 		}
-		if req.StallID == "" {
-			writeErrorJSON(w, http.StatusBadRequest, "BAD_REQUEST", "Missing required field: stall_id")
+
+		// Enforce scanner scope from device session token.
+		session, err := svc.validateScanSession(
+			r.Context(),
+			extractSessionToken(r),
+			"food",
+		)
+		if err != nil {
+			handleFoodScanError(w, r, err)
 			return
 		}
-		if req.DeviceID == "" {
-			writeErrorJSON(w, http.StatusBadRequest, "BAD_REQUEST", "Missing required field: device_id")
-			return
-		}
-		if req.FoodCategoryID == "" {
-			writeErrorJSON(w, http.StatusBadRequest, "BAD_REQUEST", "Missing required field: food_category_id")
-			return
-		}
+		req.SessionEventID = session.EventID
+		req.StallID = session.StallID
+		req.DeviceID = session.Token
+		req.FoodCategoryID = session.VendorCategoryID
 
 		// Process the food scan
 		result, err := svc.ProcessFoodScan(r.Context(), req)
@@ -93,6 +97,18 @@ func handleFoodScanError(w http.ResponseWriter, r *http.Request, err error) {
 	case errors.Is(err, qr.ErrInvalidQRType):
 		slog.Warn("food scan rejected: wrong QR type", "error", err, "request_id", requestID)
 		writeErrorJSON(w, http.StatusUnprocessableEntity, "WRONG_QR_TYPE", err.Error())
+
+	case errors.Is(err, ErrSessionTokenMissing):
+		slog.Warn("food scan rejected: missing session token", "request_id", requestID)
+		writeErrorJSON(w, http.StatusUnauthorized, "SESSION_TOKEN_REQUIRED", "Session token is required")
+
+	case errors.Is(err, ErrInvalidSession):
+		slog.Warn("food scan rejected: invalid session", "request_id", requestID)
+		writeErrorJSON(w, http.StatusUnauthorized, "INVALID_SESSION", "Session expired or revoked")
+
+	case errors.Is(err, ErrSessionScopeMismatch):
+		slog.Warn("food scan rejected: session scope mismatch", "request_id", requestID)
+		writeErrorJSON(w, http.StatusForbidden, "SESSION_SCOPE_MISMATCH", "Session is not valid for this scanner station")
 
 	default:
 		slog.Error("food scan failed: internal error", "error", err, "request_id", requestID)

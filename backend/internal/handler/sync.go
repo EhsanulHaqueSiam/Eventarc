@@ -2,24 +2,54 @@ package handler
 
 import (
 	"encoding/json"
-	"log/slog"
 	"net/http"
+
+	"github.com/ehsanul-haque-siam/eventarc/internal/scan"
 )
 
-// HandleSyncEvent is a placeholder for the event sync endpoint.
-// Full sync logic ships in Phase 4. Currently accepts POST requests
-// and returns {"status":"accepted"}.
-func HandleSyncEvent(w http.ResponseWriter, r *http.Request) {
-	var body json.RawMessage
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		slog.Warn("sync event: failed to decode body", "error", err)
-	} else {
-		slog.Info("sync event received", "body_size", len(body))
-	}
+// HandleSyncEvent handles POST /api/v1/sync/event.
+// It applies a full event dataset sync into Redis for low-latency scanner reads.
+func HandleSyncEvent(svc *scan.Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req scan.EventSyncRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "Invalid JSON body")
+			return
+		}
+		if req.EventID == "" {
+			writeError(w, http.StatusBadRequest, "VALIDATION_ERROR", "event_id is required")
+			return
+		}
+		if err := svc.SyncEventDataset(r.Context(), req); err != nil {
+			writeError(w, http.StatusInternalServerError, "SYNC_FAILED", err.Error())
+			return
+		}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{
-		"status": "accepted",
-	})
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+	}
+}
+
+// HandleFoodRulesSync handles POST /api/v1/sync/food-rules.
+func HandleFoodRulesSync(svc *scan.Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req scan.FoodRulesSyncRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "Invalid JSON body")
+			return
+		}
+		if req.EventID == "" {
+			writeError(w, http.StatusBadRequest, "VALIDATION_ERROR", "event_id is required")
+			return
+		}
+		if err := svc.SyncFoodRules(r.Context(), req.EventID, req.Rules); err != nil {
+			writeError(w, http.StatusInternalServerError, "SYNC_FAILED", err.Error())
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+	}
 }

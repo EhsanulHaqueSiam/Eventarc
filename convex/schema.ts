@@ -19,6 +19,8 @@ export default defineSchema({
       qrStrategy: v.union(v.literal("unified"), v.literal("separate")),
       foodQrMode: v.union(v.literal("guestLinked"), v.literal("anonymous")),
       foodQrTiming: v.union(v.literal("preSent"), v.literal("postEntry")),
+      allowAdditionalGuests: v.optional(v.boolean()),
+      maxAdditionalGuests: v.optional(v.number()),
     }),
     // QR generation tracking (Phase 3)
     qrGenerationStatus: v.optional(
@@ -146,6 +148,14 @@ export default defineSchema({
     .index("by_event_status", ["eventId", "status"])
     .index("by_providerRequestId", ["providerRequestId"]),
 
+  smsTemplates: defineTable({
+    eventId: v.id("events"),
+    messageTemplate: v.string(),
+    updatedByTokenIdentifier: v.string(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_event", ["eventId"]),
+
   deviceSessions: defineTable({
     eventId: v.id("events"),
     stallId: v.id("stalls"),
@@ -179,4 +189,27 @@ export default defineSchema({
     createdAt: v.number(),
     updatedAt: v.number(),
   }).index("by_event", ["eventId"]),
+
+  appUsers: defineTable({
+    tokenIdentifier: v.string(),
+    email: v.string(),
+    name: v.string(),
+    role: v.union(v.literal("admin"), v.literal("eventManager")),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_tokenIdentifier", ["tokenIdentifier"])
+    .index("by_email", ["email"]),
+
+  eventPermissions: defineTable({
+    eventId: v.id("events"),
+    userTokenIdentifier: v.string(),
+    canEdit: v.boolean(),
+    createdByTokenIdentifier: v.string(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_event", ["eventId"])
+    .index("by_event_and_user", ["eventId", "userTokenIdentifier"])
+    .index("by_userTokenIdentifier", ["userTokenIdentifier"]),
 });

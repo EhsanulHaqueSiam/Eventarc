@@ -13,6 +13,7 @@ import (
 	"github.com/redis/go-redis/v9"
 
 	"github.com/ehsanul-haque-siam/eventarc/internal/config"
+	"github.com/ehsanul-haque-siam/eventarc/internal/convexsync"
 	"github.com/ehsanul-haque-siam/eventarc/internal/r2"
 	"github.com/ehsanul-haque-siam/eventarc/internal/scan"
 	"github.com/ehsanul-haque-siam/eventarc/internal/worker"
@@ -56,6 +57,7 @@ func main() {
 
 	// Create scan PG store for background write tasks
 	scanPGStore := scan.NewPGStore(pgPool)
+	convexClient := convexsync.NewClient(cfg.ConvexURL, cfg.HMACSecret)
 
 	// Create R2 storage client
 	r2Client, err := r2.NewClient(
@@ -94,8 +96,9 @@ func main() {
 	mux.HandleFunc(worker.TaskQRGenerateBatch, qrHandler.HandleGenerateBatch)
 	mux.HandleFunc(worker.TaskQRGenerateSingle, qrHandler.HandleGenerateSingle)
 	mux.HandleFunc(scan.TaskPGWrite, scan.HandlePGWrite(scanPGStore))
-	mux.HandleFunc(scan.TaskConvexSync, scan.HandleConvexSync())
+	mux.HandleFunc(scan.TaskConvexSync, scan.HandleConvexSync(convexClient))
 	mux.HandleFunc(scan.TaskFoodScanPGWrite, scan.HandleFoodScanPGWrite(pgPool))
+	mux.HandleFunc(scan.TaskFoodScanConvexSync, scan.HandleFoodScanConvexSync(convexClient))
 
 	// Start worker in goroutine
 	go func() {

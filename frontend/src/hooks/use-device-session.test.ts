@@ -80,6 +80,22 @@ describe("useDeviceSession", () => {
     );
   });
 
+  it("skips localStorage restore when disableStoredSessionRestore is true", async () => {
+    localStorageMock.setItem("eventarc_scanner_session", "valid-token");
+
+    const { result } = renderHook(() =>
+      useDeviceSession("event-1", { disableStoredSessionRestore: true }),
+    );
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    expect(mockFetch).not.toHaveBeenCalled();
+    expect(result.current.token).toBeNull();
+    expect(result.current.session).toBeNull();
+  });
+
   it("clears token and sets isRevoked when validation returns 401", async () => {
     localStorageMock.setItem("eventarc_scanner_session", "invalid-token");
 

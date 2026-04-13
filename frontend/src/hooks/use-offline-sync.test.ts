@@ -94,7 +94,7 @@ describe("syncOfflineScans", () => {
     );
   });
 
-  test("each sync request includes idempotency_key, scan_payload, stall_id, and queued_at in body", async () => {
+  test("each sync request includes qr_payload and session authorization header", async () => {
     await queueScan(baseScanParams);
 
     const fetchMock = vi.fn().mockResolvedValue({
@@ -113,14 +113,12 @@ describe("syncOfflineScans", () => {
       cbs.onNetworkError,
     );
 
-    const body = JSON.parse(
-      fetchMock.mock.calls[0][1].body as string,
-    ) as Record<string, unknown>;
-    expect(body).toHaveProperty("idempotency_key");
-    expect(body).toHaveProperty("payload", "test-qr-payload");
-    expect(body).toHaveProperty("stall_id", "stall-001");
-    expect(body).toHaveProperty("queued_at");
-    expect(typeof body.queued_at).toBe("number");
+    const requestInit = fetchMock.mock.calls[0][1] as RequestInit;
+    const body = JSON.parse(requestInit.body as string) as Record<string, unknown>;
+    const headers = requestInit.headers as Record<string, string>;
+
+    expect(body).toEqual({ qr_payload: "test-qr-payload" });
+    expect(headers.Authorization).toBe("Bearer test-token");
   });
 
   test("successful sync response (200) updates scan to synced with synced_at", async () => {

@@ -90,7 +90,7 @@ export function EventAccessTab({ eventId }: EventAccessTabProps) {
   }
 
   if (!myAccess.isAdmin) {
-    const currentPermission = myAccess.eventPermissions.find(
+    const currentPermission = (myAccess.eventPermissions ?? []).find(
       (permission) => permission.eventId === eventId,
     );
     return (

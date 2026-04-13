@@ -81,7 +81,7 @@ func (q *Queries) GetCheckedInGuestIDs(ctx context.Context, eventID string) ([]s
 }
 
 const getEntryScanByGuest = `-- name: GetEntryScanByGuest :one
-SELECT id, idempotency_key, event_id, guest_id, stall_id, scanned_at, synced_at, device_id, status, guest_category FROM entry_scans
+SELECT id, idempotency_key, event_id, guest_id, stall_id, scanned_at, synced_at, device_id, status, guest_category, additional_guests FROM entry_scans
 WHERE event_id = $1 AND guest_id = $2
 ORDER BY scanned_at DESC
 LIMIT 1
@@ -106,26 +106,28 @@ func (q *Queries) GetEntryScanByGuest(ctx context.Context, arg GetEntryScanByGue
 		&i.DeviceID,
 		&i.Status,
 		&i.GuestCategory,
+		&i.AdditionalGuests,
 	)
 	return i, err
 }
 
 const insertEntryScan = `-- name: InsertEntryScan :one
-INSERT INTO entry_scans (idempotency_key, event_id, guest_id, stall_id, scanned_at, device_id, status, guest_category)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+INSERT INTO entry_scans (idempotency_key, event_id, guest_id, stall_id, scanned_at, device_id, status, guest_category, additional_guests)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 ON CONFLICT (idempotency_key) DO NOTHING
-RETURNING id, idempotency_key, event_id, guest_id, stall_id, scanned_at, synced_at, device_id, status, guest_category
+RETURNING id, idempotency_key, event_id, guest_id, stall_id, scanned_at, synced_at, device_id, status, guest_category, additional_guests
 `
 
 type InsertEntryScanParams struct {
-	IdempotencyKey string             `json:"idempotency_key"`
-	EventID        string             `json:"event_id"`
-	GuestID        string             `json:"guest_id"`
-	StallID        string             `json:"stall_id"`
-	ScannedAt      pgtype.Timestamptz `json:"scanned_at"`
-	DeviceID       string             `json:"device_id"`
-	Status         string             `json:"status"`
-	GuestCategory  string             `json:"guest_category"`
+	IdempotencyKey   string             `json:"idempotency_key"`
+	EventID          string             `json:"event_id"`
+	GuestID          string             `json:"guest_id"`
+	StallID          string             `json:"stall_id"`
+	ScannedAt        pgtype.Timestamptz `json:"scanned_at"`
+	DeviceID         string             `json:"device_id"`
+	Status           string             `json:"status"`
+	GuestCategory    string             `json:"guest_category"`
+	AdditionalGuests int32              `json:"additional_guests"`
 }
 
 func (q *Queries) InsertEntryScan(ctx context.Context, arg InsertEntryScanParams) (EntryScan, error) {
@@ -138,6 +140,7 @@ func (q *Queries) InsertEntryScan(ctx context.Context, arg InsertEntryScanParams
 		arg.DeviceID,
 		arg.Status,
 		arg.GuestCategory,
+		arg.AdditionalGuests,
 	)
 	var i EntryScan
 	err := row.Scan(
@@ -151,6 +154,7 @@ func (q *Queries) InsertEntryScan(ctx context.Context, arg InsertEntryScanParams
 		&i.DeviceID,
 		&i.Status,
 		&i.GuestCategory,
+		&i.AdditionalGuests,
 	)
 	return i, err
 }

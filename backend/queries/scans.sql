@@ -1,6 +1,6 @@
 -- name: InsertEntryScan :one
-INSERT INTO entry_scans (idempotency_key, event_id, guest_id, stall_id, scanned_at, device_id, status, guest_category)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+INSERT INTO entry_scans (idempotency_key, event_id, guest_id, stall_id, scanned_at, device_id, status, guest_category, additional_guests)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 ON CONFLICT (idempotency_key) DO NOTHING
 RETURNING *;
 

@@ -15,6 +15,8 @@ type EventSyncPayload = {
     qr_strategy: "unified" | "separate";
     food_qr_mode: "guestLinked" | "anonymous";
     food_qr_timing: "preSent" | "postEntry";
+    allow_additional_guests: boolean;
+    max_additional_guests: number;
   };
   guest_categories: Array<{
     id: string;
@@ -60,6 +62,8 @@ const syncDatasetValidator = v.object({
         qrStrategy: v.union(v.literal("unified"), v.literal("separate")),
         foodQrMode: v.union(v.literal("guestLinked"), v.literal("anonymous")),
         foodQrTiming: v.union(v.literal("preSent"), v.literal("postEntry")),
+        allowAdditionalGuests: v.optional(v.boolean()),
+        maxAdditionalGuests: v.optional(v.number()),
       }),
     }),
     v.null(),
@@ -154,6 +158,8 @@ export const getEventSyncDataset = internalQuery({
           qrStrategy: event.config.qrStrategy,
           foodQrMode: event.config.foodQrMode,
           foodQrTiming: event.config.foodQrTiming,
+          allowAdditionalGuests: event.config.allowAdditionalGuests,
+          maxAdditionalGuests: event.config.maxAdditionalGuests,
         },
       },
       guestCategories: guestCategories.map((category) => ({
@@ -198,6 +204,8 @@ export const pushEventToGo = internalAction({
           qrStrategy: "unified" | "separate";
           foodQrMode: "guestLinked" | "anonymous";
           foodQrTiming: "preSent" | "postEntry";
+          allowAdditionalGuests?: boolean;
+          maxAdditionalGuests?: number;
         };
       } | null;
       guestCategories: Array<{ _id: string; name: string }>;
@@ -251,6 +259,8 @@ export const pushEventToGo = internalAction({
         qr_strategy: dataset.event.config.qrStrategy,
         food_qr_mode: dataset.event.config.foodQrMode,
         food_qr_timing: dataset.event.config.foodQrTiming,
+        allow_additional_guests: dataset.event.config.allowAdditionalGuests ?? false,
+        max_additional_guests: dataset.event.config.maxAdditionalGuests ?? 0,
       },
       guest_categories: dataset.guestCategories.map((category) => ({
         id: category._id,

@@ -33,20 +33,27 @@ func HandleEntryScan(svc *Service) http.HandlerFunc {
 			writeErrorJSON(w, http.StatusBadRequest, "BAD_REQUEST", "Invalid request body")
 			return
 		}
+		req.Normalize()
 
 		// Validate required fields
 		if req.QRPayload == "" {
 			writeErrorJSON(w, http.StatusBadRequest, "BAD_REQUEST", "qr_payload is required")
 			return
 		}
-		if req.StallID == "" {
-			writeErrorJSON(w, http.StatusBadRequest, "BAD_REQUEST", "stall_id is required")
+
+		// Enforce scanner scope from device session token.
+		session, err := svc.validateScanSession(
+			r.Context(),
+			extractSessionToken(r),
+			"entry",
+		)
+		if err != nil {
+			handleScanError(w, r, err)
 			return
 		}
-		if req.DeviceID == "" {
-			writeErrorJSON(w, http.StatusBadRequest, "BAD_REQUEST", "device_id is required")
-			return
-		}
+		req.SessionEventID = session.EventID
+		req.StallID = session.StallID
+		req.DeviceID = session.Token
 
 		// Process the scan
 		result, err := svc.ProcessEntryScan(r.Context(), req)
@@ -99,6 +106,26 @@ func handleScanError(w http.ResponseWriter, r *http.Request, err error) {
 	case errors.Is(err, qr.ErrInvalidQRType):
 		slog.Warn("scan rejected: wrong QR type", "error", err, "request_id", requestID)
 		writeErrorJSON(w, http.StatusUnprocessableEntity, "WRONG_QR_TYPE", err.Error())
+
+	case errors.Is(err, ErrSessionTokenMissing):
+		slog.Warn("scan rejected: missing session token", "request_id", requestID)
+		writeErrorJSON(w, http.StatusUnauthorized, "SESSION_TOKEN_REQUIRED", "Session token is required")
+
+	case errors.Is(err, ErrInvalidSession):
+		slog.Warn("scan rejected: invalid session", "request_id", requestID)
+		writeErrorJSON(w, http.StatusUnauthorized, "INVALID_SESSION", "Session expired or revoked")
+
+	case errors.Is(err, ErrSessionScopeMismatch):
+		slog.Warn("scan rejected: session scope mismatch", "request_id", requestID)
+		writeErrorJSON(w, http.StatusForbidden, "SESSION_SCOPE_MISMATCH", "Session is not valid for this scanner station")
+
+	case errors.Is(err, ErrAdditionalGuestsNotAllowed):
+		slog.Warn("scan rejected: additional guests not allowed", "request_id", requestID)
+		writeErrorJSON(w, http.StatusUnprocessableEntity, "ADDITIONAL_GUESTS_NOT_ALLOWED", err.Error())
+
+	case errors.Is(err, ErrAdditionalGuestsLimitExceeded):
+		slog.Warn("scan rejected: additional guest limit exceeded", "request_id", requestID)
+		writeErrorJSON(w, http.StatusUnprocessableEntity, "ADDITIONAL_GUESTS_LIMIT_EXCEEDED", err.Error())
 
 	default:
 		slog.Error("scan failed: internal error", "error", err, "request_id", requestID)

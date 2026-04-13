@@ -175,11 +175,9 @@ export function GuestTable({ eventId, filters, onAddGuest }: GuestTableProps) {
           </p>
         </div>
         <div className="flex gap-3">
-          <Button asChild>
-            <Link to="/events/$eventId/guests/import" params={{ eventId }}>
-              <Upload className="mr-2 size-4" />
-              Import Guests
-            </Link>
+          <Button render={<Link to="/events/$eventId/guests/import" params={{ eventId }} />}>
+            <Upload className="mr-2 size-4" />
+            Import Guests
           </Button>
           <Button variant="outline" onClick={onAddGuest}>
             <UserPlus className="mr-2 size-4" />

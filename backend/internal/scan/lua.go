@@ -4,7 +4,7 @@ import "github.com/redis/go-redis/v9"
 
 // checkInScript is the Redis Lua script for atomic entry check-in.
 // It performs: (1) check if guest already checked in, (2) if not, mark as checked in,
-// (3) store check-in details, (4) increment event attendance counter.
+// (3) store check-in details, (4) increment event attendance counter by 1 + additionalGuests.
 //
 // KEYS[1] = checkedin:{eventId}          (SET — checked-in guest IDs)
 // KEYS[2] = checkin:{eventId}:{guestId}  (HASH — check-in details)
@@ -15,6 +15,7 @@ import "github.com/redis/go-redis/v9"
 // ARGV[3] = stallId
 // ARGV[4] = deviceId
 // ARGV[5] = guestCategory (for per-category counter)
+// ARGV[6] = additionalGuests (number of extra persons accompanying the guest)
 //
 // Returns:
 //
@@ -27,7 +28,9 @@ if already == 1 then
 end
 redis.call('SADD', KEYS[1], ARGV[1])
 redis.call('HSET', KEYS[2], 'timestamp', ARGV[2], 'stallId', ARGV[3], 'deviceId', ARGV[4], 'status', 'valid')
-redis.call('HINCRBY', KEYS[3], 'attendance', 1)
+local additional = tonumber(ARGV[6]) or 0
+local totalPersons = 1 + additional
+redis.call('HINCRBY', KEYS[3], 'attendance', totalPersons)
 if ARGV[5] ~= '' then
   redis.call('HINCRBY', KEYS[3], ARGV[5] .. ':checkedin', 1)
 end

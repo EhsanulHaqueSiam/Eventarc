@@ -30,7 +30,7 @@ func TestCreateSession(t *testing.T) {
 	sh, mr := setupSessionTest(t)
 
 	t.Run("success", func(t *testing.T) {
-		body := `{"stallId":"stall-1","eventId":"event-1","vendorCategoryId":"cat-1","vendorTypeId":"type-1"}`
+		body := `{"stallId":"stall-1","eventId":"event-1","vendorCategoryId":"cat-1","vendorTypeId":"type-1","vendorType":"entry"}`
 		req := httptest.NewRequest(http.MethodPost, "/api/v1/session", strings.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		rec := httptest.NewRecorder()
@@ -102,7 +102,7 @@ func TestValidateSession(t *testing.T) {
 	sh, _ := setupSessionTest(t)
 
 	// First create a session
-	body := `{"stallId":"stall-1","eventId":"event-1","vendorCategoryId":"cat-1","vendorTypeId":"type-1"}`
+	body := `{"stallId":"stall-1","eventId":"event-1","vendorCategoryId":"cat-1","vendorTypeId":"type-1","vendorType":"entry"}`
 	createReq := httptest.NewRequest(http.MethodPost, "/api/v1/session", strings.NewReader(body))
 	createReq.Header.Set("Content-Type", "application/json")
 	createRec := httptest.NewRecorder()
@@ -188,7 +188,7 @@ func TestRevokeSession(t *testing.T) {
 	sh, _ := setupSessionTest(t)
 
 	// Create a session first
-	body := `{"stallId":"stall-1","eventId":"event-1","vendorCategoryId":"cat-1","vendorTypeId":"type-1"}`
+	body := `{"stallId":"stall-1","eventId":"event-1","vendorCategoryId":"cat-1","vendorTypeId":"type-1","vendorType":"entry"}`
 	createReq := httptest.NewRequest(http.MethodPost, "/api/v1/session", strings.NewReader(body))
 	createReq.Header.Set("Content-Type", "application/json")
 	createRec := httptest.NewRecorder()
@@ -231,7 +231,7 @@ func TestGenerateSessionToken(t *testing.T) {
 
 	tokens := make(map[string]bool)
 	for i := 0; i < 10; i++ {
-		body := `{"stallId":"stall-1","eventId":"event-1","vendorCategoryId":"cat-1","vendorTypeId":"type-1"}`
+		body := `{"stallId":"stall-1","eventId":"event-1","vendorCategoryId":"cat-1","vendorTypeId":"type-1","vendorType":"entry"}`
 		req := httptest.NewRequest(http.MethodPost, "/api/v1/session", strings.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		rec := httptest.NewRecorder()

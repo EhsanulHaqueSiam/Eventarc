@@ -336,14 +336,16 @@ export function VendorsTab({ eventId, canEdit = true }: VendorsTabProps) {
             )}
 
             {canEdit && !addingStall && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setAddingStall(true)}
-              >
-                <Plus className="mr-2 size-4" />
-                Add Stall
-              </Button>
+              <div className="px-4">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setAddingStall(true)}
+                >
+                  <Plus className="mr-2 size-4" />
+                  Add Stall
+                </Button>
+              </div>
             )}
           </div>
         </SheetContent>

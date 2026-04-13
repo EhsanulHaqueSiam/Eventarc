@@ -14,6 +14,8 @@ const eventConfigValidator = v.object({
   qrStrategy: v.union(v.literal("unified"), v.literal("separate")),
   foodQrMode: v.union(v.literal("guestLinked"), v.literal("anonymous")),
   foodQrTiming: v.union(v.literal("preSent"), v.literal("postEntry")),
+  allowAdditionalGuests: v.optional(v.boolean()),
+  maxAdditionalGuests: v.optional(v.number()),
 });
 
 const statusValidator = v.union(
