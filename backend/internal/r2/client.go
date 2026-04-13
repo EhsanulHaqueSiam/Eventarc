@@ -13,6 +13,25 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
 
+// R2 Bucket CORS Configuration (set in Cloudflare Dashboard):
+//
+//	Allowed Origins: ["https://your-domain.com"] (or ["*"] for development)
+//	Allowed Methods: ["GET", "HEAD"]
+//	Allowed Headers: ["*"]
+//	Max Age: 86400
+//
+// Public read access requires either:
+//
+//	1. R2 Custom Domain (recommended): Automatic public access via CDN
+//	2. R2 Public Bucket: Enable in bucket settings
+//
+// R2 Key Structure:
+//
+//	QR codes:    events/{eventID}/guests/{guestID}/qr/{entry|food|unified}.png
+//	Card images: events/{eventID}/guests/{guestID}/cards/card.png
+//	Templates:   events/{eventID}/templates/{templateID}/background.png
+//	Event prefix: events/{eventID}/
+
 // Client wraps an S3-compatible client configured for Cloudflare R2.
 type Client struct {
 	s3Client   *s3.Client
@@ -66,8 +85,19 @@ func (c *Client) PublicURL(key string) string {
 }
 
 // BuildKey constructs the R2 object key for a guest's QR code image.
-// Format: {eventID}/{guestID}/{typeName}.png
+// Format: events/{eventID}/guests/{guestID}/qr/{typeName}.png
 func BuildKey(eventID, guestID string, qrType byte) string {
+	return fmt.Sprintf(
+		"events/%s/guests/%s/qr/%s.png",
+		eventID,
+		guestID,
+		qrTypeName(qrType),
+	)
+}
+
+// BuildLegacyKey keeps compatibility with previously used QR object structure.
+// Format: {eventID}/{guestID}/{typeName}.png
+func BuildLegacyKey(eventID, guestID string, qrType byte) string {
 	return fmt.Sprintf("%s/%s/%s.png", eventID, guestID, qrTypeName(qrType))
 }
 
@@ -90,15 +120,21 @@ func (c *Client) Download(ctx context.Context, key string) ([]byte, error) {
 }
 
 // BuildCardKey constructs the R2 object key for a guest's composite card image.
-// Format: {eventID}/{guestID}/card.png
+// Format: events/{eventID}/guests/{guestID}/cards/card.png
 func BuildCardKey(eventID, guestID string) string {
-	return fmt.Sprintf("%s/%s/card.png", eventID, guestID)
+	return fmt.Sprintf("events/%s/guests/%s/cards/card.png", eventID, guestID)
+}
+
+// BuildTemplateBackgroundKey constructs the R2 object key for a template background.
+// Format: events/{eventID}/templates/{templateID}/background.png
+func BuildTemplateBackgroundKey(eventID, templateID string) string {
+	return fmt.Sprintf("events/%s/templates/%s/background.png", eventID, templateID)
 }
 
 // BuildEventPrefix returns the R2 key prefix for all QR codes of an event.
 // Useful for listing or bulk-deleting all QR codes for an event.
 func BuildEventPrefix(eventID string) string {
-	return eventID + "/"
+	return fmt.Sprintf("events/%s/", eventID)
 }
 
 // qrTypeName maps QR type bytes to their string representation for R2 keys.

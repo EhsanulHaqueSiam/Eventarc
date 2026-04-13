@@ -1,4 +1,7 @@
-import { useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useAction, useQuery } from "convex/react";
+import { api } from "convex/_generated/api";
+import type { Id } from "convex/_generated/dataModel";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -24,9 +27,10 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { SMSStatusBadge } from "./sms-status-badge";
 import { Send, RefreshCw, MessageSquare } from "lucide-react";
+import { toast } from "sonner";
 
 interface SMSDashboardProps {
-  eventId: string;
+  eventId: Id<"events">;
 }
 
 interface SMSDelivery {
@@ -39,52 +43,294 @@ interface SMSDelivery {
 
 interface SMSCounts {
   queued: number;
+  sending: number;
   sent: number;
   delivered: number;
   failed: number;
   total: number;
 }
 
-export function SMSDashboard({ eventId: _eventId }: SMSDashboardProps) {
-  const [statusFilter, setStatusFilter] = useState("all");
+const DEFAULT_MESSAGE_TEMPLATE =
+  "Your EventArc invitation card is ready. Download it here: {cardUrl}";
+const SMS_PLACEHOLDERS = ["{cardUrl}", "{link}", "{name}", "{phone}", "{number}"];
 
-  // Placeholder data - will be wired to Convex queries when smsDeliveries table exists (Plan 03)
-  const counts: SMSCounts | undefined = undefined;
-  const deliveries: SMSDelivery[] | undefined = undefined;
-  const isLoading = false;
+function applySmsTemplate(
+  template: string,
+  sample: { name: string; phone: string; cardUrl: string },
+): string {
+  let message = template;
+  const replacements: Record<string, string> = {
+    "{cardUrl}": sample.cardUrl,
+    "{link}": sample.cardUrl,
+    "{name}": sample.name,
+    "{guestName}": sample.name,
+    "{phone}": sample.phone,
+    "{number}": sample.phone,
+  };
+
+  for (const [token, value] of Object.entries(replacements)) {
+    message = message.replaceAll(token, value);
+  }
+  return message;
+}
+
+export function SMSDashboard({ eventId }: SMSDashboardProps) {
+  const [statusFilter, setStatusFilter] = useState<
+    "all" | "queued" | "sending" | "sent" | "delivered" | "failed"
+  >("all");
+  const [isSending, setIsSending] = useState(false);
+  const [messageTemplate, setMessageTemplate] = useState(DEFAULT_MESSAGE_TEMPLATE);
+  const [progressCounts, setProgressCounts] = useState<
+    SMSCounts | undefined
+  >(undefined);
+  const [isLoadingProgress, setIsLoadingProgress] = useState(true);
+  const templateStorageKey = useMemo(
+    () => `eventarc_sms_template:${eventId}`,
+    [eventId],
+  );
+
+  const triggerSmsSend = useAction(api.adminGateway.triggerSmsSend);
+  const triggerSmsRetryFailed = useAction(api.adminGateway.triggerSmsRetryFailed);
+  const getSmsProgress = useAction(api.adminGateway.getSmsProgress);
+  const deliveryRecords = useQuery(api.smsDeliveries.listByEvent, {
+    eventId,
+  });
+
+  const refreshProgress = useCallback(async () => {
+    try {
+      const progress = await getSmsProgress({ eventId });
+      setProgressCounts({
+        queued: progress.queued,
+        sending: 0,
+        sent: progress.sent,
+        delivered: progress.delivered,
+        failed: progress.failed,
+        total: progress.total,
+      });
+    } catch {
+      // Progress endpoint can be empty before first send.
+    } finally {
+      setIsLoadingProgress(false);
+    }
+  }, [eventId, getSmsProgress]);
+
+  useEffect(() => {
+    const savedTemplate = localStorage.getItem(templateStorageKey);
+    if (savedTemplate?.trim()) {
+      setMessageTemplate(savedTemplate);
+    } else {
+      setMessageTemplate(DEFAULT_MESSAGE_TEMPLATE);
+    }
+  }, [templateStorageKey]);
+
+  useEffect(() => {
+    localStorage.setItem(templateStorageKey, messageTemplate);
+  }, [templateStorageKey, messageTemplate]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const poll = async () => {
+      try {
+        const progress = await getSmsProgress({ eventId });
+        if (cancelled) return;
+        setProgressCounts({
+          queued: progress.queued,
+          sending: 0,
+          sent: progress.sent,
+          delivered: progress.delivered,
+          failed: progress.failed,
+          total: progress.total,
+        });
+      } catch {
+        // Ignore temporary errors and keep polling.
+      } finally {
+        if (!cancelled) {
+          setIsLoadingProgress(false);
+        }
+      }
+    };
+
+    void poll();
+    const interval = window.setInterval(() => {
+      void poll();
+    }, 3000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [eventId, getSmsProgress]);
+
+  const deliveries: SMSDelivery[] | undefined = useMemo(() => {
+    if (!deliveryRecords) return undefined;
+    return deliveryRecords.map((delivery) => ({
+      _id: delivery._id,
+      guestName: delivery.guestName ?? "Unknown guest",
+      phone: delivery.phone,
+      status: delivery.status,
+      lastAttemptAt: delivery.lastAttemptAt,
+    }));
+  }, [deliveryRecords]);
+
+  const fallbackCounts: SMSCounts | undefined = useMemo(() => {
+    if (!deliveries) return undefined;
+    const counts: SMSCounts = {
+      queued: 0,
+      sending: 0,
+      sent: 0,
+      delivered: 0,
+      failed: 0,
+      total: deliveries.length,
+    };
+    for (const delivery of deliveries) {
+      counts[delivery.status]++;
+    }
+    return counts;
+  }, [deliveries]);
+
+  const counts = progressCounts ?? fallbackCounts;
+  const isLoading = isLoadingProgress && deliveryRecords === undefined;
+  const templatePreview = useMemo(() => {
+    const sample = deliveries?.[0];
+    return applySmsTemplate(messageTemplate, {
+      name: sample?.guestName ?? "Guest Name",
+      phone: sample?.phone ?? "017XXXXXXXX",
+      cardUrl: "https://cdn.example.com/card.png",
+    });
+  }, [deliveries, messageTemplate]);
+
+  const filteredDeliveries =
+    statusFilter === "all"
+      ? deliveries
+      : deliveries?.filter((delivery) => delivery.status === statusFilter);
+
+  const handleSend = useCallback(async () => {
+    if (!messageTemplate.trim()) {
+      toast.error("Message template is required");
+      return;
+    }
+    setIsSending(true);
+    try {
+      await triggerSmsSend({
+        eventId,
+        messageTemplate,
+      });
+      toast.success("SMS invitations queued for delivery");
+      await refreshProgress();
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to send invitations";
+      toast.error(message);
+    } finally {
+      setIsSending(false);
+    }
+  }, [eventId, messageTemplate, refreshProgress, triggerSmsSend]);
+
+  const handleRetryFailed = useCallback(async () => {
+    if (!messageTemplate.trim()) {
+      toast.error("Message template is required");
+      return;
+    }
+    setIsSending(true);
+    try {
+      await triggerSmsRetryFailed({
+        eventId,
+        messageTemplate,
+      });
+      toast.success("Retrying failed SMS deliveries");
+      await refreshProgress();
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to retry";
+      toast.error(message);
+    } finally {
+      setIsSending(false);
+    }
+  }, [eventId, messageTemplate, refreshProgress, triggerSmsRetryFailed]);
 
   // Empty state
   if (!counts && !isLoading) {
     return (
-      <div className="flex flex-col items-center gap-4 py-16 text-center">
-        <MessageSquare className="size-12 text-muted-foreground/40" />
-        <div>
-          <h3 className="text-lg font-semibold">Invitations not sent</h3>
-          <p className="mt-1 max-w-md text-sm text-muted-foreground">
+      <div className="mx-auto max-w-lg space-y-6 py-12">
+        <div className="flex flex-col items-center gap-3 text-center">
+          <div className="flex size-12 items-center justify-center rounded-xl bg-muted">
+            <MessageSquare className="size-6 text-muted-foreground" />
+          </div>
+          <h3 className="font-display text-lg font-semibold">Invitations not sent</h3>
+          <p className="max-w-md text-sm leading-relaxed text-muted-foreground">
             Send SMS invitations with card download links to all guests.
-            Delivery status is tracked per guest.
+            Delivery status is tracked per guest in real time.
           </p>
         </div>
-        <AlertDialog>
-          <AlertDialogTrigger asChild>
-            <Button>
-              <Send className="mr-2 size-4" />
-              Send Invitations
-            </Button>
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Send SMS to all guests?</AlertDialogTitle>
-              <AlertDialogDescription>
-                Standard messaging rates apply.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction>Send</AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+
+        <Card>
+          <CardContent className="space-y-3 pt-6">
+            <div>
+              <p className="text-sm font-medium">SMS message body</p>
+              <p className="text-xs text-muted-foreground">
+                Available placeholders: {SMS_PLACEHOLDERS.join(", ")}
+              </p>
+            </div>
+            <textarea
+              value={messageTemplate}
+              onChange={(event) => setMessageTemplate(event.target.value)}
+              rows={4}
+              maxLength={800}
+              className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+              placeholder="Write SMS body..."
+            />
+            <div className="flex flex-wrap gap-1">
+              {SMS_PLACEHOLDERS.map((placeholder) => (
+                <button
+                  key={placeholder}
+                  type="button"
+                  onClick={() => setMessageTemplate((prev) => prev + placeholder)}
+                  className="rounded-md border bg-muted px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+                >
+                  {placeholder}
+                </button>
+              ))}
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs font-medium text-muted-foreground">Preview</p>
+              <p className="rounded-md bg-muted px-3 py-2 text-xs break-all text-muted-foreground">
+                {templatePreview}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <div className="flex justify-center">
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button>
+                <Send className="mr-2 size-4" />
+                Send Invitations
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Send SMS to all guests?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will send the SMS template above to all guests with card download links.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  disabled={isSending}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    void handleSend();
+                  }}
+                >
+                  {isSending ? "Sending..." : "Send"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
       </div>
     );
   }
@@ -96,31 +342,31 @@ export function SMSDashboard({ eventId: _eventId }: SMSDashboardProps) {
         <Card>
           <CardContent className="pt-6">
             <p className="text-sm text-muted-foreground">Queued</p>
-            <p className="mt-1 text-[28px] font-semibold leading-tight">
+            <p className="mt-1 font-display text-[28px] font-semibold leading-tight">
               {counts?.queued.toLocaleString() ?? 0}
             </p>
           </CardContent>
         </Card>
-        <Card className="border-amber-200">
+        <Card>
           <CardContent className="pt-6">
             <p className="text-sm text-muted-foreground">Sent</p>
-            <p className="mt-1 text-[28px] font-semibold leading-tight text-amber-600">
+            <p className="mt-1 font-display text-[28px] font-semibold leading-tight text-warning">
               {counts?.sent.toLocaleString() ?? 0}
             </p>
           </CardContent>
         </Card>
-        <Card className="border-emerald-200">
+        <Card>
           <CardContent className="pt-6">
             <p className="text-sm text-muted-foreground">Delivered</p>
-            <p className="mt-1 text-[28px] font-semibold leading-tight text-emerald-600">
+            <p className="mt-1 font-display text-[28px] font-semibold leading-tight text-success">
               {counts?.delivered.toLocaleString() ?? 0}
             </p>
           </CardContent>
         </Card>
-        <Card className="border-destructive/30">
+        <Card>
           <CardContent className="pt-6">
             <p className="text-sm text-muted-foreground">Failed</p>
-            <p className="mt-1 text-[28px] font-semibold leading-tight text-destructive">
+            <p className="mt-1 font-display text-[28px] font-semibold leading-tight text-destructive">
               {counts?.failed.toLocaleString() ?? 0}
             </p>
           </CardContent>
@@ -128,6 +374,43 @@ export function SMSDashboard({ eventId: _eventId }: SMSDashboardProps) {
       </div>
 
       {/* Actions */}
+      <Card>
+        <CardContent className="space-y-3 pt-6">
+          <div>
+            <p className="text-sm font-medium">SMS message body</p>
+            <p className="text-xs text-muted-foreground">
+              Available placeholders: {SMS_PLACEHOLDERS.join(", ")}
+            </p>
+          </div>
+          <textarea
+            value={messageTemplate}
+            onChange={(event) => setMessageTemplate(event.target.value)}
+            rows={4}
+            maxLength={800}
+            className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+            placeholder="Write SMS body..."
+          />
+          <div className="flex flex-wrap gap-1">
+            {SMS_PLACEHOLDERS.map((placeholder) => (
+              <button
+                key={placeholder}
+                type="button"
+                onClick={() => setMessageTemplate((prev) => prev + placeholder)}
+                className="rounded-md border bg-muted px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+              >
+                {placeholder}
+              </button>
+            ))}
+          </div>
+          <div className="space-y-1">
+            <p className="text-xs font-medium text-muted-foreground">Preview</p>
+            <p className="rounded-md bg-muted px-3 py-2 text-xs break-all text-muted-foreground">
+              {templatePreview}
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
       <div className="flex items-center gap-2">
         <AlertDialog>
           <AlertDialogTrigger asChild>
@@ -142,19 +425,31 @@ export function SMSDashboard({ eventId: _eventId }: SMSDashboardProps) {
                 Send SMS to {counts?.total.toLocaleString()} guests?
               </AlertDialogTitle>
               <AlertDialogDescription>
-                Standard messaging rates apply.
+                Available placeholders:
+                <code className="ml-1">
+                  {SMS_PLACEHOLDERS.join(", ")}
+                </code>
+                .
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction>Send</AlertDialogAction>
+              <AlertDialogAction
+                disabled={isSending}
+                onClick={(e) => {
+                  e.preventDefault();
+                  void handleSend();
+                }}
+              >
+                {isSending ? "Sending..." : "Send"}
+              </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
         {(counts?.failed ?? 0) > 0 && (
-          <Button variant="outline">
-            <RefreshCw className="mr-2 size-4" />
-            Retry Failed
+          <Button variant="outline" disabled={isSending} onClick={() => void handleRetryFailed()}>
+            <RefreshCw className="size-4" />
+            Retry Failed ({counts?.failed})
           </Button>
         )}
       </div>
@@ -171,7 +466,7 @@ export function SMSDashboard({ eventId: _eventId }: SMSDashboardProps) {
       </Tabs>
 
       {/* Delivery table */}
-      <div className="rounded-md border">
+      <div className="rounded-xl shadow-card">
         <Table>
           <TableHeader>
             <TableRow>
@@ -182,7 +477,7 @@ export function SMSDashboard({ eventId: _eventId }: SMSDashboardProps) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {deliveries === undefined ? (
+            {filteredDeliveries === undefined ? (
               // Loading skeleton
               Array.from({ length: 5 }).map((_, i) => (
                 <TableRow key={i}>
@@ -200,7 +495,7 @@ export function SMSDashboard({ eventId: _eventId }: SMSDashboardProps) {
                   </TableCell>
                 </TableRow>
               ))
-            ) : deliveries.length === 0 ? (
+            ) : filteredDeliveries.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={4} className="py-8 text-center">
                   <p className="text-sm text-muted-foreground">
@@ -209,7 +504,7 @@ export function SMSDashboard({ eventId: _eventId }: SMSDashboardProps) {
                 </TableCell>
               </TableRow>
             ) : (
-              deliveries.map((delivery) => (
+              filteredDeliveries.map((delivery) => (
                 <TableRow key={delivery._id}>
                   <TableCell className="font-medium">
                     {delivery.guestName}
