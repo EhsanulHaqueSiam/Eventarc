@@ -2,8 +2,7 @@
 
 A multi-event management platform built for large-scale events with up to 60,000 attendees and 10,000 concurrent users. QR-based entry control, configurable food distribution tracking, real-time admin dashboards, and bulk SMS invitations with custom card designs.
 
-![EventArc Banner](docs/screenshots/banner.png)
-<!-- TODO: Add banner screenshot -->
+![EventArc Dashboard](docs/screenshots/dashboard.png)
 
 ---
 
@@ -69,31 +68,26 @@ A multi-event management platform built for large-scale events with up to 60,000
 
 ## Screenshots
 
-<!-- TODO: Replace placeholders with actual screenshots -->
+### Events Dashboard
+![Events Dashboard](docs/screenshots/dashboard.png)
 
-### Admin Dashboard
-![Admin Dashboard](docs/screenshots/dashboard.png)
-<!-- TODO: Add dashboard screenshot showing live event monitoring -->
-
-### Event Configuration
+### Event Detail & Configuration
 ![Event Configuration](docs/screenshots/event-config.png)
-<!-- TODO: Add screenshot of event creation/configuration page -->
 
 ### Guest Management
 ![Guest Management](docs/screenshots/guests.png)
-<!-- TODO: Add screenshot of guest list with import/search -->
 
-### Card Designer
+### Invitation Card Designer
 ![Card Designer](docs/screenshots/card-designer.png)
-<!-- TODO: Add screenshot of the Fabric.js card template editor -->
 
 ### Scanner Interface
 ![Scanner Interface](docs/screenshots/scanner.png)
-<!-- TODO: Add screenshot of the mobile scanner UI -->
 
-### Live Dashboard
+### Live Event Dashboard
 ![Live Dashboard](docs/screenshots/live-dashboard.png)
-<!-- TODO: Add screenshot of real-time event monitoring dashboard -->
+
+### Login
+![Login](docs/screenshots/login.png)
 
 ---
 
