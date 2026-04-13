@@ -100,6 +100,13 @@ func (s *Service) persistEntryScanDurably(
 	}
 
 	if !pgQueued {
+		if s.requirePGDurability {
+			return fmt.Errorf(
+				"entry scan durability requirement unmet: PG sink unavailable for event=%s guest=%s",
+				pgPayload.EventID,
+				pgPayload.GuestID,
+			)
+		}
 		slog.Warn(
 			"entry scan accepted without PG durability sink",
 			"event_id",
@@ -109,6 +116,13 @@ func (s *Service) persistEntryScanDurably(
 		)
 	}
 	if !convexQueued {
+		if s.requireConvexDurability {
+			return fmt.Errorf(
+				"entry scan durability requirement unmet: Convex sink unavailable for event=%s guest=%s",
+				convexPayload.EventID,
+				convexPayload.GuestID,
+			)
+		}
 		slog.Warn(
 			"entry scan accepted without Convex durability sink",
 			"event_id",
@@ -209,6 +223,14 @@ func (s *Service) persistFoodScanDurably(
 	}
 
 	if !pgQueued {
+		if s.requirePGDurability {
+			return fmt.Errorf(
+				"food scan durability requirement unmet: PG sink unavailable for event=%s guest=%s category=%s",
+				pgPayload.EventID,
+				pgPayload.GuestID,
+				pgPayload.FoodCategoryID,
+			)
+		}
 		slog.Warn(
 			"food scan accepted without PG durability sink",
 			"event_id",
@@ -220,6 +242,14 @@ func (s *Service) persistFoodScanDurably(
 		)
 	}
 	if !convexQueued {
+		if s.requireConvexDurability {
+			return fmt.Errorf(
+				"food scan durability requirement unmet: Convex sink unavailable for event=%s guest=%s category=%s",
+				convexPayload.EventID,
+				convexPayload.GuestID,
+				convexPayload.FoodCategoryID,
+			)
+		}
 		slog.Warn(
 			"food scan accepted without Convex durability sink",
 			"event_id",

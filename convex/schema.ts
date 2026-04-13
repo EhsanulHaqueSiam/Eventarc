@@ -124,6 +124,28 @@ export default defineSchema({
       "foodCategoryId",
     ]),
 
+  foodScans: defineTable({
+    idempotencyKey: v.string(),
+    eventId: v.id("events"),
+    guestId: v.string(), // guest id (or anon token id in anonymous mode)
+    foodCategoryId: v.id("vendorCategories"),
+    stallId: v.id("stalls"),
+    scannedAt: v.number(),
+    deviceId: v.string(),
+    guestCategory: v.optional(v.string()),
+    isAnonymous: v.boolean(),
+    consumptionCount: v.number(),
+    status: v.union(
+      v.literal("valid"),
+      v.literal("limit_reached"),
+      v.literal("rejected"),
+    ),
+    createdAt: v.number(),
+  })
+    .index("by_event", ["eventId"])
+    .index("by_idempotency_key", ["idempotencyKey"])
+    .index("by_event_and_foodCategory", ["eventId", "foodCategoryId"]),
+
   smsDeliveries: defineTable({
     eventId: v.id("events"),
     guestId: v.id("guests"),

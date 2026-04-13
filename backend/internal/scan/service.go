@@ -23,12 +23,14 @@ var (
 
 // Service handles entry scan processing with atomic Redis operations.
 type Service struct {
-	redis        *redis.Client
-	pgPool       *pgxpool.Pool
-	pgStore      *PGStore
-	asynqClient  *asynq.Client
-	convexClient *convexsync.Client
-	hmacSecret   []byte
+	redis                   *redis.Client
+	pgPool                  *pgxpool.Pool
+	pgStore                 *PGStore
+	asynqClient             *asynq.Client
+	convexClient            *convexsync.Client
+	hmacSecret              []byte
+	requirePGDurability     bool
+	requireConvexDurability bool
 }
 
 // NewService creates a new scan processing service.
@@ -53,6 +55,13 @@ func (s *Service) SetAsynqClient(client *asynq.Client) {
 // SetConvexClient configures the Convex client for direct sync fallback.
 func (s *Service) SetConvexClient(client *convexsync.Client) {
 	s.convexClient = client
+}
+
+// SetDurabilityRequirements enforces fail-closed behavior when durability sinks
+// are unavailable after an accepted Redis scan update.
+func (s *Service) SetDurabilityRequirements(requirePG, requireConvex bool) {
+	s.requirePGDurability = requirePG
+	s.requireConvexDurability = requireConvex
 }
 
 // ProcessEntryScan is the main scan pipeline:

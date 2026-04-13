@@ -88,6 +88,8 @@ func main() {
 	scanSvc := scan.NewService(redisClient, pgPool, []byte(cfg.HMACSecret))
 	scanSvc.SetAsynqClient(asynqClient)
 	scanSvc.SetConvexClient(convexsync.NewClient(cfg.ConvexURL, cfg.HMACSecret))
+	// Live traffic must fail closed if durable sinks are unavailable.
+	scanSvc.SetDurabilityRequirements(true, true)
 
 	recoveryCtx, cancelRecovery := context.WithTimeout(ctx, 20*time.Second)
 	if err := scanSvc.RunStartupRecovery(recoveryCtx); err != nil {

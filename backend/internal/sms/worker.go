@@ -22,10 +22,10 @@ const (
 )
 
 const (
-	defaultBatchSize         = 100
-	defaultMaxBatchesPerSec  = 5
-	maxRetries               = 5
-	statusPollInterval       = 30 * time.Second
+	defaultBatchSize        = 100
+	defaultMaxBatchesPerSec = 5
+	maxRetries              = 5
+	statusPollInterval      = 30 * time.Second
 )
 
 // GuestPhone represents a guest's phone and card URL for SMS delivery.
@@ -65,12 +65,12 @@ type SMSStatusPollPayload struct {
 
 // SMSWorker handles asynq tasks for the SMS delivery pipeline.
 type SMSWorker struct {
-	provider           SMSProvider
-	redisClient        *redis.Client
-	asynqClient        *asynq.Client
-	batchSize          int
-	maxBatchesPerSec   int
-	logger             *slog.Logger
+	provider         SMSProvider
+	redisClient      *redis.Client
+	asynqClient      *asynq.Client
+	batchSize        int
+	maxBatchesPerSec int
+	logger           *slog.Logger
 }
 
 // NewSMSWorker creates an SMSWorker with the given provider and clients.
@@ -135,8 +135,8 @@ func (w *SMSWorker) HandleSMSBatch(ctx context.Context, t *asynq.Task) error {
 		}
 
 		task := asynq.NewTask(TypeSMSSendBatch, batchBytes, asynq.MaxRetry(3), asynq.Queue("default"))
-		if _, err := w.asynqClient.Enqueue(task); err != nil {
-			w.logger.Error("failed to enqueue send batch", "error", err)
+		if err := w.enqueueOrRun(ctx, task); err != nil {
+			w.logger.Error("failed to dispatch send batch", "error", err)
 		}
 
 		// Rate limit between batch enqueues
@@ -149,7 +149,9 @@ func (w *SMSWorker) HandleSMSBatch(ctx context.Context, t *asynq.Task) error {
 	pollPayload, _ := json.Marshal(SMSStatusPollPayload{EventID: payload.EventID})
 	pollTask := asynq.NewTask(TypeSMSStatusPoll, pollPayload,
 		asynq.ProcessIn(statusPollInterval), asynq.MaxRetry(10), asynq.Queue("default"))
-	w.asynqClient.Enqueue(pollTask)
+	if err := w.enqueueOrRun(ctx, pollTask); err != nil {
+		w.logger.Error("failed to dispatch status poll task", "error", err)
+	}
 
 	return nil
 }
@@ -213,7 +215,9 @@ func (w *SMSWorker) HandleSMSSendBatch(ctx context.Context, t *asynq.Task) error
 			})
 			retryTask := asynq.NewTask(TypeSMSRetry, retryPayload,
 				asynq.ProcessIn(time.Second), asynq.MaxRetry(0), asynq.Queue("default"))
-			w.asynqClient.Enqueue(retryTask)
+			if err := w.enqueueOrRun(ctx, retryTask); err != nil {
+				w.logger.Error("failed to dispatch retry task", "error", err)
+			}
 		}
 	}
 
@@ -268,7 +272,9 @@ func (w *SMSWorker) HandleSMSRetry(ctx context.Context, t *asynq.Task) error {
 		})
 		nextTask := asynq.NewTask(TypeSMSRetry, nextPayload,
 			asynq.ProcessIn(delay), asynq.MaxRetry(0), asynq.Queue("default"))
-		w.asynqClient.Enqueue(nextTask)
+		if err := w.enqueueOrRun(ctx, nextTask); err != nil {
+			w.logger.Error("failed to dispatch retry task", "error", err)
+		}
 		return nil
 	}
 
@@ -321,7 +327,9 @@ func (w *SMSWorker) HandleSMSStatusPoll(ctx context.Context, t *asynq.Task) erro
 		pollPayload, _ := json.Marshal(SMSStatusPollPayload{EventID: payload.EventID})
 		pollTask := asynq.NewTask(TypeSMSStatusPoll, pollPayload,
 			asynq.ProcessIn(statusPollInterval), asynq.MaxRetry(10), asynq.Queue("default"))
-		w.asynqClient.Enqueue(pollTask)
+		if err := w.enqueueOrRun(ctx, pollTask); err != nil {
+			w.logger.Error("failed to dispatch status poll task", "error", err)
+		}
 	}
 
 	return nil
@@ -331,4 +339,59 @@ func (w *SMSWorker) HandleSMSStatusPoll(ctx context.Context, t *asynq.Task) erro
 // Exported for testing.
 func BackoffDelay(retryCount int) time.Duration {
 	return time.Duration(math.Pow(2, float64(retryCount))) * time.Second
+}
+
+// enqueueOrRun dispatches SMS tasks through Asynq when available.
+// In integration tests or fallback mode (no Asynq client), it executes tasks inline.
+func (w *SMSWorker) enqueueOrRun(ctx context.Context, task *asynq.Task) error {
+	if w.asynqClient != nil {
+		_, err := w.asynqClient.Enqueue(task)
+		return err
+	}
+
+	switch task.Type() {
+	case TypeSMSSendBatch:
+		return w.handleSMSSendBatchInline(ctx, task)
+	case TypeSMSRetry:
+		return w.HandleSMSRetry(ctx, task)
+	case TypeSMSStatusPoll:
+		// In inline mode we skip polling scheduling.
+		return nil
+	default:
+		return nil
+	}
+}
+
+// handleSMSSendBatchInline executes a send batch directly when Asynq is unavailable.
+// This mode is primarily for integration tests and local fallback behavior.
+func (w *SMSWorker) handleSMSSendBatchInline(ctx context.Context, t *asynq.Task) error {
+	var payload SMSSendBatchPayload
+	if err := json.Unmarshal(t.Payload(), &payload); err != nil {
+		return fmt.Errorf("sms: unmarshal send batch inline: %w", err)
+	}
+
+	phones := make([]string, len(payload.Batch))
+	for i, gp := range payload.Batch {
+		phones[i] = gp.Phone
+	}
+
+	_, err := w.provider.Send(ctx, SendRequest{
+		To:      phones,
+		Message: payload.MessageTemplate,
+	})
+	if err != nil {
+		if errors.Is(err, ErrInsufficientBalance) {
+			w.redisClient.Set(ctx, smsProgressKey(payload.EventID, "balance_error"), "true", 0)
+			w.logger.Error("SMS insufficient balance — inline batch halted", "eventId", payload.EventID)
+			return nil
+		}
+		return fmt.Errorf("sms: inline send batch failed: %w", err)
+	}
+
+	w.logger.Info("SMS batch sent",
+		"eventId", payload.EventID,
+		"count", len(payload.Batch),
+		"mode", "inline",
+	)
+	return nil
 }
