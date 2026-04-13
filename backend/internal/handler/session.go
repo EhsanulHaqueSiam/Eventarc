@@ -84,7 +84,7 @@ func (h *SessionHandler) CreateSession(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Store in Redis with 48h TTL -- sessions auto-expire, cleaned up on event completion
-	key := "session:" + token
+	key := sessionRedisKey(token)
 	if err := h.redis.Set(r.Context(), key, data, 48*time.Hour).Err(); err != nil {
 		writeError(w, http.StatusInternalServerError, "redis_error", "Failed to store session")
 		return
@@ -106,7 +106,7 @@ func (h *SessionHandler) ValidateSession(w http.ResponseWriter, r *http.Request)
 
 	token := strings.TrimPrefix(authHeader, "Bearer ")
 
-	key := "session:" + token
+	key := sessionRedisKey(token)
 	val, err := h.redis.Get(r.Context(), key).Result()
 	if err == redis.Nil {
 		writeError(w, http.StatusUnauthorized, "invalid_session", "Session expired or revoked")
@@ -143,10 +143,15 @@ func (h *SessionHandler) RevokeSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	key := "session:" + token
+	key := sessionRedisKey(token)
 	h.redis.Del(r.Context(), key)
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// sessionRedisKey returns the Redis key for a device session token.
+func sessionRedisKey(token string) string {
+	return "session:" + token
 }
 
 // writeError is defined in qr.go and shared across all handlers in this package.

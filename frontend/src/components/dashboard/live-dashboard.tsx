@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSSE } from "@/hooks/use-sse";
+import { getApiBaseUrl } from "@/lib/api";
 import { MetricCard } from "./metric-card";
 import { FoodCategoryRow } from "./food-category-row";
 import { StallActivityRow } from "./stall-activity-row";
@@ -43,7 +44,7 @@ interface AlertData {
 }
 
 const MAX_ALERTS = 50;
-const API_BASE = import.meta.env.VITE_GO_API_URL || "http://localhost:8080";
+const API_BASE = getApiBaseUrl();
 
 interface LiveDashboardProps {
   eventId: string;
@@ -58,14 +59,83 @@ export function LiveDashboard({ eventId }: LiveDashboardProps) {
   }, []);
 
   const handleCounters = useCallback((data: unknown) => {
-    // Merge counter updates into existing snapshot
     setSnapshot((prev) => {
       if (!prev) return prev;
-      const update = data as Partial<DashboardSnapshot>;
+      const update = data as Partial<DashboardSnapshot> & {
+        counters?: Record<string, number>;
+        timestamp?: string;
+      };
+      const mergedCounters = { ...prev.counters, ...(update.counters ?? {}) };
+
+      const checkedIn =
+        mergedCounters.attendance ??
+        update.attendance?.checkedIn ??
+        prev.attendance.checkedIn;
+      const totalInvited =
+        mergedCounters.total_invited ??
+        update.attendance?.totalInvited ??
+        prev.attendance.totalInvited;
+      const percentage =
+        totalInvited > 0 ? (checkedIn / totalInvited) * 100 : 0;
+
+      const foodServedByCategory = new Map<string, number>();
+      for (const [key, value] of Object.entries(mergedCounters)) {
+        const foodMatch = key.match(/^food:(.+):served$/);
+        if (!foodMatch) continue;
+        foodServedByCategory.set(foodMatch[1], Number(value) || 0);
+      }
+
+      const foodCategories = prev.foodCategories.map((category) => {
+        const served = foodServedByCategory.get(category.category);
+        if (served === undefined) {
+          return category;
+        }
+        return { ...category, served };
+      });
+      for (const [category, served] of foodServedByCategory.entries()) {
+        if (!foodCategories.some((item) => item.category === category)) {
+          foodCategories.push({ category, served });
+        }
+      }
+
+      const stallServedByID = new Map<string, number>();
+      for (const [key, value] of Object.entries(mergedCounters)) {
+        const stallMatch = key.match(/^stall:(.+):served$/);
+        if (!stallMatch) continue;
+        stallServedByID.set(stallMatch[1], Number(value) || 0);
+      }
+
+      const eventTime = update.timestamp ?? new Date().toISOString();
+      const stalls = prev.stalls.map((stall) => {
+        const scanCount = stallServedByID.get(stall.stallId);
+        if (scanCount === undefined) {
+          return stall;
+        }
+        return {
+          ...stall,
+          scanCount,
+          status: scanCount > 0 ? "active" : "idle",
+          lastScan: scanCount !== stall.scanCount ? eventTime : stall.lastScan,
+        };
+      });
+      for (const [stallID, scanCount] of stallServedByID.entries()) {
+        if (!stalls.some((stall) => stall.stallId === stallID)) {
+          stalls.push({
+            stallId: stallID,
+            stallName: stallID,
+            scanCount,
+            lastScan: eventTime,
+            status: scanCount > 0 ? "active" : "idle",
+          });
+        }
+      }
+
       return {
         ...prev,
-        attendance: update.attendance ?? prev.attendance,
-        counters: { ...prev.counters, ...(update.counters ?? {}) },
+        attendance: { checkedIn, totalInvited, percentage },
+        counters: mergedCounters,
+        foodCategories,
+        stalls,
       };
     });
   }, []);
@@ -136,8 +206,8 @@ export function LiveDashboard({ eventId }: LiveDashboardProps) {
         className="w-full"
       />
 
-      {/* Metrics Grid: 2x2 */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      {/* Secondary Metrics */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <MetricCard
           label="Total Scans"
           value={counters.scans_total ?? 0}
@@ -157,10 +227,6 @@ export function LiveDashboard({ eventId }: LiveDashboardProps) {
           value={foodCategories.reduce((sum, fc) => sum + fc.served, 0)}
           subtitle={`across ${foodCategories.length} categories`}
         />
-        <MetricCard
-          label="Active Stations"
-          value={`${activeStalls} / ${totalStalls}`}
-        />
       </div>
 
       {/* Two-Column Section: Food + Stalls */}
@@ -173,9 +239,12 @@ export function LiveDashboard({ eventId }: LiveDashboardProps) {
           <CardContent>
             <ScrollArea className="max-h-[300px]">
               {foodCategories.length === 0 ? (
-                <p className="py-4 text-center text-sm text-muted-foreground">
-                  No food categories configured
-                </p>
+                <div className="flex flex-col items-center gap-2 py-8 text-center">
+                  <p className="text-sm font-medium">No food categories</p>
+                  <p className="max-w-[200px] text-xs text-muted-foreground">
+                    Configure food vendor categories in the Vendors tab to track consumption here.
+                  </p>
+                </div>
               ) : (
                 foodCategories.map((fc) => (
                   <FoodCategoryRow
@@ -198,9 +267,12 @@ export function LiveDashboard({ eventId }: LiveDashboardProps) {
           <CardContent>
             <ScrollArea className="max-h-[300px]">
               {sortedStalls.length === 0 ? (
-                <p className="py-4 text-center text-sm text-muted-foreground">
-                  No active scanning stations
-                </p>
+                <div className="flex flex-col items-center gap-2 py-8 text-center">
+                  <p className="text-sm font-medium">No active stations</p>
+                  <p className="max-w-[200px] text-xs text-muted-foreground">
+                    Scanning stations will appear here once operators connect and start scanning.
+                  </p>
+                </div>
               ) : (
                 sortedStalls.map((stall) => (
                   <StallActivityRow

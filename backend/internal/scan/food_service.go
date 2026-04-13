@@ -3,7 +3,6 @@ package scan
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"strconv"
 	"strings"
 	"time"
@@ -38,9 +37,16 @@ func (s *Service) ProcessFoodScan(ctx context.Context, req FoodScanRequest) (Foo
 	if payload.QRType != qr.QRTypeFood && payload.QRType != qr.QRTypeUnified {
 		return FoodScanResult{}, fmt.Errorf("%w: expected food or unified QR, got %s", qr.ErrInvalidQRType, qr.QRTypeName(payload.QRType))
 	}
+	if req.SessionEventID != "" && req.SessionEventID != payload.EventID {
+		return FoodScanResult{}, ErrSessionScopeMismatch
+	}
+
+	if err := s.ensureFoodCountersRecovered(ctx, payload.EventID); err != nil {
+		return FoodScanResult{}, err
+	}
 
 	// Step 3: Determine food mode from event config
-	foodQrMode, err := s.redis.HGet(ctx, fmt.Sprintf("event:%s", payload.EventID), "foodQrMode").Result()
+	foodQrMode, err := s.redis.HGet(ctx, EventKey(payload.EventID), "foodQrMode").Result()
 	if err != nil {
 		return FoodScanResult{}, fmt.Errorf("event config not synced (foodQrMode missing): %w", err)
 	}
@@ -53,7 +59,7 @@ func (s *Service) ProcessFoodScan(ctx context.Context, req FoodScanRequest) (Foo
 
 	if foodQrMode == "anonymous" {
 		// Anonymous mode: lookup token metadata
-		tokenKey := fmt.Sprintf("anontoken:%s:%s", payload.EventID, payload.GuestID)
+		tokenKey := AnonTokenKey(payload.EventID, payload.GuestID)
 		tokenData, tokenErr := s.redis.HGetAll(ctx, tokenKey).Result()
 		if tokenErr != nil {
 			return FoodScanResult{}, fmt.Errorf("redis anonymous token lookup failed: %w", tokenErr)
@@ -64,11 +70,11 @@ func (s *Service) ProcessFoodScan(ctx context.Context, req FoodScanRequest) (Foo
 		guestCategoryID = tokenData["category"]
 
 		// Anonymous consumption key
-		consumptionKey = fmt.Sprintf("food:%s:anon:%s", payload.EventID, payload.GuestID)
-		logKey = fmt.Sprintf("foodlog:%s:anon:%s", payload.EventID, payload.GuestID)
+		consumptionKey = AnonFoodConsumptionKey(payload.EventID, payload.GuestID)
+		logKey = AnonFoodLogKey(payload.EventID, payload.GuestID)
 	} else {
 		// Guest-linked mode (default)
-		guestKey := fmt.Sprintf("guest:%s:%s", payload.EventID, payload.GuestID)
+		guestKey := GuestKey(payload.EventID, payload.GuestID)
 		guestData, guestErr := s.redis.HGetAll(ctx, guestKey).Result()
 		if guestErr != nil {
 			return FoodScanResult{}, fmt.Errorf("redis guest lookup failed: %w", guestErr)
@@ -83,13 +89,13 @@ func (s *Service) ProcessFoodScan(ctx context.Context, req FoodScanRequest) (Foo
 		}
 
 		// Guest-linked consumption key
-		consumptionKey = fmt.Sprintf("food:%s:%s", payload.EventID, payload.GuestID)
-		logKey = fmt.Sprintf("foodlog:%s:%s", payload.EventID, payload.GuestID)
+		consumptionKey = FoodConsumptionKey(payload.EventID, payload.GuestID)
+		logKey = FoodLogKey(payload.EventID, payload.GuestID)
 	}
 
 	// Step 5: Build Redis keys
-	rulesKey := fmt.Sprintf("foodrules:%s", payload.EventID)
-	countersKey := fmt.Sprintf("counters:%s", payload.EventID)
+	rulesKey := FoodRulesKey(payload.EventID)
+	countersKey := CountersKey(payload.EventID)
 
 	// Get stall name for log entry
 	stallName := s.GetStallName(ctx, payload.EventID, req.StallID)
@@ -118,10 +124,12 @@ func (s *Service) ProcessFoodScan(ctx context.Context, req FoodScanRequest) (Foo
 
 	switch result[0] {
 	case "NO_RULE":
+		s.publishCounterUpdate(ctx, payload.EventID, "scans_total")
 		return FoodScanResult{}, fmt.Errorf("%w: no food rule configured for category %s and food %s",
 			model.ErrNotFound, guestCategoryID, req.FoodCategoryID)
 
 	case "LIMIT_REACHED":
+		s.publishCounterUpdate(ctx, payload.EventID, "scans_total", "scans_duplicate")
 		current, _ := strconv.Atoi(result[1])
 		limit, _ := strconv.Atoi(result[2])
 
@@ -142,6 +150,13 @@ func (s *Service) ProcessFoodScan(ctx context.Context, req FoodScanRequest) (Foo
 		}, nil
 
 	case "OK":
+		s.publishCounterUpdate(
+			ctx,
+			payload.EventID,
+			"scans_total",
+			fmt.Sprintf("food:%s:served", req.FoodCategoryID),
+			fmt.Sprintf("stall:%s:served", req.StallID),
+		)
 		current, _ := strconv.Atoi(result[1])
 		limit, _ := strconv.Atoi(result[2])
 
@@ -150,30 +165,44 @@ func (s *Service) ProcessFoodScan(ctx context.Context, req FoodScanRequest) (Foo
 			remaining = limit - current
 		}
 
-		// Enqueue async PG write for durable storage (dual-write pattern)
+		idempotencyKey := fmt.Sprintf(
+			"food:%s:%s:%s:%d",
+			payload.EventID,
+			payload.GuestID,
+			req.FoodCategoryID,
+			current,
+		)
+
+		// Persist accepted scans durably (asynq first, then direct fallback).
 		isAnonymous := foodQrMode == "anonymous"
-		if s.asynqClient != nil {
-			pgPayload := FoodScanPGPayload{
-				IdempotencyKey:   fmt.Sprintf("food:%s:%s:%s:%s", payload.EventID, payload.GuestID, req.FoodCategoryID, now),
-				EventID:          payload.EventID,
-				GuestID:          payload.GuestID,
-				FoodCategoryID:   req.FoodCategoryID,
-				StallID:          req.StallID,
-				ScannedAt:        now,
-				DeviceID:         req.DeviceID,
-				GuestCategory:    guestCategoryID,
-				IsAnonymous:      isAnonymous,
-				ConsumptionCount: current,
-				Status:           "valid",
-			}
-			task, taskErr := NewFoodScanPGWriteTask(pgPayload)
-			if taskErr == nil {
-				if _, enqErr := s.asynqClient.Enqueue(task); enqErr != nil {
-					slog.Warn("failed to enqueue food scan pg write", "error", enqErr,
-						"event_id", payload.EventID, "guest_id", payload.GuestID)
-					// Non-fatal: Redis has correct state. PG write will be manually reconciled.
-				}
-			}
+		pgPayload := FoodScanPGPayload{
+			IdempotencyKey:   idempotencyKey,
+			EventID:          payload.EventID,
+			GuestID:          payload.GuestID,
+			FoodCategoryID:   req.FoodCategoryID,
+			StallID:          req.StallID,
+			ScannedAt:        now,
+			DeviceID:         req.DeviceID,
+			GuestCategory:    guestCategoryID,
+			IsAnonymous:      isAnonymous,
+			ConsumptionCount: current,
+			Status:           "valid",
+		}
+		convexPayload := FoodScanConvexPayload{
+			IdempotencyKey:   idempotencyKey,
+			EventID:          payload.EventID,
+			GuestID:          payload.GuestID,
+			FoodCategoryID:   req.FoodCategoryID,
+			StallID:          req.StallID,
+			ScannedAt:        now,
+			DeviceID:         req.DeviceID,
+			GuestCategory:    guestCategoryID,
+			IsAnonymous:      isAnonymous,
+			ConsumptionCount: current,
+			Status:           "valid",
+		}
+		if err := s.persistFoodScanDurably(ctx, pgPayload, convexPayload); err != nil {
+			return FoodScanResult{}, err
 		}
 
 		return FoodScanResult{
@@ -220,7 +249,7 @@ func (s *Service) readConsumptionHistory(ctx context.Context, logKey string) []H
 // Key: stall:{eventId}:{stallId} -> "name" field.
 // Falls back to stallID if not cached.
 func (s *Service) GetStallName(ctx context.Context, eventID, stallID string) string {
-	key := fmt.Sprintf("stall:%s:%s", eventID, stallID)
+	key := StallKey(eventID, stallID)
 	name, err := s.redis.HGet(ctx, key, "name").Result()
 	if err != nil || name == "" {
 		return stallID
@@ -232,7 +261,7 @@ func (s *Service) GetStallName(ctx context.Context, eventID, stallID string) str
 // Key: foodcategory:{eventId}:{categoryId} -> "name" field.
 // Falls back to categoryID if not cached.
 func (s *Service) GetFoodCategoryName(ctx context.Context, eventID, categoryID string) string {
-	key := fmt.Sprintf("foodcategory:%s:%s", eventID, categoryID)
+	key := FoodCategoryKey(eventID, categoryID)
 	name, err := s.redis.HGet(ctx, key, "name").Result()
 	if err != nil || name == "" {
 		return categoryID

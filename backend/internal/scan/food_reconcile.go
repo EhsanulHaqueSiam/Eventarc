@@ -75,7 +75,7 @@ func (s *Service) reseedGuestConsumption(ctx context.Context, eventID string) (i
 		// Guest-linked: food:{eventId}:{guestId}
 		// Anonymous guests have their guestID prefixed differently in PG,
 		// but for reconciliation we use the stored guest_id as-is
-		key := fmt.Sprintf("food:%s:%s", eventID, guestID)
+		key := FoodConsumptionKey(eventID, guestID)
 		pipe.HSet(ctx, key, foodCategoryID, consumed)
 		count++
 	}
@@ -95,7 +95,7 @@ func (s *Service) reseedGuestConsumption(ctx context.Context, eventID string) (i
 
 // reseedDashboardFoodCounters rebuilds per-category and per-stall served totals.
 func (s *Service) reseedDashboardFoodCounters(ctx context.Context, eventID string) (int, int, error) {
-	counterKey := fmt.Sprintf("counters:%s", eventID)
+	counterKey := CountersKey(eventID)
 	pipe := s.redis.Pipeline()
 
 	// Per-category totals
@@ -139,7 +139,7 @@ func (s *Service) reseedDashboardFoodCounters(ctx context.Context, eventID strin
 		if err := stallRows.Scan(&stallID, &count); err != nil {
 			return 0, 0, fmt.Errorf("scan stall counter row: %w", err)
 		}
-		pipe.HSet(ctx, counterKey, fmt.Sprintf("food:%s:served", stallID), count)
+		pipe.HSet(ctx, counterKey, fmt.Sprintf("stall:%s:served", stallID), count)
 		stallCount++
 	}
 	if err := stallRows.Err(); err != nil {
@@ -159,14 +159,14 @@ func (s *Service) reseedDashboardFoodCounters(ctx context.Context, eventID strin
 // CheckFoodCountersExist returns true if food counter fields exist for the given event.
 // Used to detect Redis restart and trigger reconciliation.
 func (s *Service) CheckFoodCountersExist(ctx context.Context, eventID string) (bool, error) {
-	counterKey := fmt.Sprintf("counters:%s", eventID)
+	counterKey := CountersKey(eventID)
 	exists, err := s.redis.HExists(ctx, counterKey, "food:initialized").Result()
 	return exists, err
 }
 
 // MarkFoodCountersInitialized sets a marker field after reconciliation completes.
 func (s *Service) MarkFoodCountersInitialized(ctx context.Context, eventID string) error {
-	counterKey := fmt.Sprintf("counters:%s", eventID)
+	counterKey := CountersKey(eventID)
 	return s.redis.HSet(ctx, counterKey, "food:initialized", "1").Err()
 }
 

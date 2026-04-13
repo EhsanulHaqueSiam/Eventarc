@@ -47,8 +47,8 @@ func (r *ReseedService) ReseedEventCounters(ctx context.Context, eventID string)
 		return fmt.Errorf("reseed: get guest ids: %w", err)
 	}
 
-	countersKey := fmt.Sprintf("counters:%s", eventID)
-	checkedInKey := fmt.Sprintf("checkedin:%s", eventID)
+	countersKey := CountersKey(eventID)
+	checkedInKey := CheckedInKey(eventID)
 
 	// Atomic re-seed using MULTI/EXEC pipeline
 	_, err = r.redis.TxPipelined(ctx, func(pipe redis.Pipeliner) error {
@@ -90,8 +90,8 @@ func (r *ReseedService) ReseedEventCounters(ctx context.Context, eventID string)
 // If missing (Redis was restarted), triggers ReseedEventCounters.
 // Returns true if re-seed was needed and performed.
 func (r *ReseedService) CheckAndReseed(ctx context.Context, eventID string) (bool, error) {
-	countersKey := fmt.Sprintf("counters:%s", eventID)
-	checkedInKey := fmt.Sprintf("checkedin:%s", eventID)
+	countersKey := CountersKey(eventID)
+	checkedInKey := CheckedInKey(eventID)
 
 	// Check if counters hash exists
 	countersExist, err := r.redis.Exists(ctx, countersKey).Result()
@@ -143,7 +143,7 @@ func (r *ReseedService) ReseedCheckedInSet(ctx context.Context, eventID string) 
 		return fmt.Errorf("reseed set: get guest ids: %w", err)
 	}
 
-	checkedInKey := fmt.Sprintf("checkedin:%s", eventID)
+	checkedInKey := CheckedInKey(eventID)
 
 	_, err = r.redis.TxPipelined(ctx, func(pipe redis.Pipeliner) error {
 		pipe.Del(ctx, checkedInKey)
@@ -171,8 +171,8 @@ func (r *ReseedService) HandleReseedCounters(ctx context.Context, eventID string
 	}
 
 	// Read back the re-seeded values for confirmation
-	countersKey := fmt.Sprintf("counters:%s", eventID)
-	checkedInKey := fmt.Sprintf("checkedin:%s", eventID)
+	countersKey := CountersKey(eventID)
+	checkedInKey := CheckedInKey(eventID)
 
 	attendance, _ := r.redis.HGet(ctx, countersKey, "attendance").Result()
 	setCard, _ := r.redis.SCard(ctx, checkedInKey).Result()

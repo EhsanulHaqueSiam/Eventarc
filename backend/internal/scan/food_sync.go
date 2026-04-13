@@ -30,7 +30,7 @@ type AnonTokenSync struct {
 //	HSET foodrules:{eventId} {guestCategoryId}:{foodCategoryId} {limit}
 //	for each rule in the payload
 func (s *Service) SyncFoodRules(ctx context.Context, eventID string, rules []FoodRuleSync) error {
-	key := fmt.Sprintf("foodrules:%s", eventID)
+	key := FoodRulesKey(eventID)
 
 	// Delete existing rules (clean slate on full sync)
 	if err := s.redis.Del(ctx, key).Err(); err != nil {
@@ -71,7 +71,7 @@ func (s *Service) SyncAnonymousTokens(ctx context.Context, eventID string, token
 
 	pipe := s.redis.Pipeline()
 	for _, token := range tokens {
-		key := fmt.Sprintf("anontoken:%s:%s", eventID, token.TokenID)
+		key := AnonTokenKey(eventID, token.TokenID)
 		pipe.HSet(ctx, key, "category", token.GuestCategoryID)
 	}
 	_, err := pipe.Exec(ctx)
