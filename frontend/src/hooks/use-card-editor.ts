@@ -52,7 +52,14 @@ export function useCardEditor(
           canvasW / (img.width ?? canvasW),
           canvasH / (img.height ?? canvasH),
         );
-        img.scale(scale);
+        img.set({
+          originX: "left",
+          originY: "top",
+          left: 0,
+          top: 0,
+          scaleX: scale,
+          scaleY: scale,
+        });
 
         canvas.backgroundImage = img;
         canvas.requestRenderAll();
@@ -76,6 +83,8 @@ export function useCardEditor(
         const canvasW = canvas.getWidth();
         const canvasH = canvas.getHeight();
         qrImg.set({
+          originX: "left",
+          originY: "top",
           left: canvasW / 2 - (qrImg.width ?? 100) / 2,
           top: canvasH / 2 - (qrImg.height ?? 100) / 2,
           hasControls: true,

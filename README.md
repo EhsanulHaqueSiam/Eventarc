@@ -93,39 +93,217 @@ A multi-event management platform built for large-scale events with up to 60,000
 
 ## Architecture
 
-```
-                    +------------------+
-                    |    Frontend      |
-                    |  React + Vite    |
-                    |  TanStack Router |
-                    +--------+---------+
-                             |
-              +--------------+--------------+
-              |                             |
-    +---------v----------+       +----------v---------+
-    |      Convex        |       |    Go Backend      |
-    |  CRUD / Real-time  |       |  Scan Hot Path     |
-    |  Auth / Dashboard  |       |  QR / Cards / SMS  |
-    +--------+-----------+       +----+-----+---------+
-             |                        |     |
-             |    HMAC-signed sync    |     |
-             +<-----------------------+     |
-                                      |     |
-                              +-------v-+ +-v---------+
-                              |  Redis  | | PostgreSQL |
-                              | Counters| | Scan Data  |
-                              | Pub/Sub | | via        |
-                              | Cache   | | PgBouncer  |
-                              +---------+ +------------+
-                                      |
-                              +-------v---------+
-                              | Cloudflare R2   |
-                              | QR & Card Images|
-                              | (CDN delivery)  |
-                              +-----------------+
+### System Overview
+
+```mermaid
+graph TB
+    subgraph Clients["Clients"]
+        Admin["Admin Dashboard<br/><i>React · TanStack Router · Query</i>"]
+        Scanner["Vendor Scanner<br/><i>React · Zustand · IndexedDB offline queue</i>"]
+    end
+
+    subgraph Convex["Convex — CRUD & Real-time"]
+        ConvexDB[("Convex DB")]
+        Auth["Better Auth<br/><i>email/password · RBAC</i>"]
+        CRUD["Mutations & Queries<br/><i>events · guests · vendors<br/>stalls · food rules · categories</i>"]
+        Sync["Sync Endpoints<br/><i>/internal/sync/guest-checkin<br/>/internal/sync/food-consumption<br/>/internal/sync/guest-card</i>"]
+        AdminGW["Admin Gateway<br/><i>HMAC-signed calls to Go</i>"]
+    end
+
+    subgraph Go["Go Backend"]
+        API["API Server — chi v5<br/><i>scan validation · SSE broker<br/>device sessions · task dispatch</i>"]
+        Worker["Worker — asynq<br/><i>QR generation · card compositing<br/>SMS delivery · R2 upload</i>"]
+    end
+
+    subgraph Data["Data Layer"]
+        Redis[("Redis 8<br/><i>Lua scripts · atomic counters<br/>pub/sub · scan cache · job queue</i>")]
+        PG[("PostgreSQL 17<br/>via PgBouncer<br/><i>entry_scans · food_scans<br/>event_counters</i>")]
+        R2[("Cloudflare R2<br/><i>QR images · card images<br/>zero-egress CDN</i>")]
+        SMS["SMS Provider<br/><i>sms.net.bd</i>"]
+    end
+
+    Admin -- "Convex React subscriptions<br/>(real-time CRUD)" --> CRUD
+    Admin -- "SSE<br/>(live counters)" --> API
+    Scanner -- "HTTP POST<br/>(scan requests)" --> API
+    Scanner -- "offline queue → sync on reconnect" --> API
+
+    CRUD --> ConvexDB
+    Auth --> ConvexDB
+    AdminGW -- "HMAC POST<br/>/api/v1/qr/generate<br/>/api/v1/cards/composite<br/>/api/v1/sms/send" --> API
+
+    API -- "Lua scripts<br/>(atomic check-in & food rules)" --> Redis
+    API -- "publish counter updates" --> Redis
+    API -- "asynq enqueue" --> Worker
+    API -- "PG durability write" --> PG
+
+    Worker -- "progress tracking" --> Redis
+    Worker -- "upload images" --> R2
+    Worker -- "send SMS" --> SMS
+    Worker -- "HMAC sync<br/>(guest-checkin, food-consumption, guest-card)" --> Sync
+
+    Sync --> ConvexDB
+
+    style Clients fill:#e0f2fe,stroke:#0284c7
+    style Convex fill:#fef3c7,stroke:#d97706
+    style Go fill:#dcfce7,stroke:#16a34a
+    style Data fill:#f3e8ff,stroke:#9333ea
 ```
 
-**Why hybrid?** Convex excels at real-time subscriptions and CRUD with zero-config. But QR scan processing at 10K concurrent writes needs PostgreSQL advisory locks, Redis atomic counters, and Lua scripts for race-condition-free operation. Each system does what it does best.
+### Why Hybrid?
+
+Convex excels at real-time subscriptions and CRUD with zero-config. But QR scan processing at 10K concurrent writes needs Redis Lua scripts for atomic validation and PostgreSQL for durable storage. Each system does what it does best.
+
+### Admin Flow — Event Setup to SMS Delivery
+
+```mermaid
+sequenceDiagram
+    participant A as Admin Dashboard
+    participant C as Convex
+    participant G as Go API Server
+    participant W as Go Worker (asynq)
+    participant R as Redis
+    participant S3 as Cloudflare R2
+    participant SMS as SMS Provider
+
+    Note over A,C: 1. Event & Guest Setup (Convex CRUD)
+    A->>C: Create event, configure food rules
+    A->>C: Import guests (CSV/Excel, up to 60K)
+    A->>C: Configure guest categories & vendor stalls
+
+    Note over A,SMS: 2. Go Live — Sync to Go Backend
+    A->>C: Set event status → "live"
+    C->>G: HMAC POST /api/v1/sync/event<br/>(full dataset: guests, stalls, rules, categories)
+    G->>R: Bulk-load event config, guests, stalls,<br/>food rules, categories into Redis hashes
+
+    Note over A,S3: 3. QR Generation
+    A->>C: Trigger QR generation
+    C->>G: HMAC POST /api/v1/qr/generate<br/>(eventId, qrStrategy, foodQrMode)
+    G->>W: Enqueue TaskQRGenerateBatch
+    W->>W: Fan-out: one task per guest
+    W->>S3: Upload QR images to R2
+    W->>C: HMAC sync guest.qrUrls
+    W->>R: Update qr:progress:{eventId}
+    A-->>G: Poll GET /api/v1/qr/generate/{id}/progress
+
+    Note over A,S3: 4. Card Compositing
+    A->>C: Design card template (Fabric.js editor)
+    A->>C: Trigger card compositing
+    C->>G: HMAC POST /api/v1/cards/composite<br/>(eventId, templateId, overlay config)
+    G->>W: Enqueue card:composite:batch
+    W->>W: Fan-out: overlay QR onto template per guest
+    W->>S3: Upload card images to R2
+    W->>C: HMAC POST /internal/sync/guest-card
+
+    Note over A,SMS: 5. SMS Delivery
+    A->>C: Trigger SMS send
+    C->>G: HMAC POST /api/v1/sms/send<br/>(guest list with card URLs)
+    G->>W: Enqueue sms:batch
+    W->>W: Split into batches of 100, rate-limited
+    W->>SMS: Send SMS with card image links
+    W->>R: Update sms:{eventId}:sent/failed counters
+```
+
+### Scanner Flow — QR Scan Processing
+
+```mermaid
+sequenceDiagram
+    participant S as Vendor Scanner
+    participant G as Go API Server
+    participant R as Redis
+    participant PG as PostgreSQL
+    participant C as Convex
+    participant D as Admin Dashboard
+
+    Note over S,G: 1. Session Creation (zero-credential)
+    S->>G: POST /api/v1/session<br/>{stallId, eventId, vendorType}
+    G->>R: HSET session:{token} → session metadata
+    G-->>S: {token} → stored in localStorage
+
+    Note over S,C: 2. Entry Scan (Lua-atomic)
+    S->>G: POST /api/v1/scan/entry<br/>Authorization: Bearer {token}<br/>{qr_payload, additional_guests}
+    G->>G: HMAC-verify QR payload
+    G->>R: HGETALL guest:{eventId}:{guestId}
+    G->>R: Execute Lua check-in script atomically:<br/>SISMEMBER checkedin:{eventId} → duplicate?<br/>SADD guestId to checkedin set<br/>HSET checkin details<br/>HINCRBY attendance counter
+    alt Duplicate scan
+        G-->>S: 409 Conflict (original scan details)
+        G->>R: HINCRBY scans_duplicate
+    else Valid scan
+        G-->>S: 200 OK (guest info + scan result)
+        G->>R: PUBLISH event:{eventId}:scans → counter update
+        G->>PG: asynq → INSERT INTO entry_scans (durable)
+        G->>C: asynq → HMAC POST /internal/sync/guest-checkin
+    end
+
+    Note over S,C: 3. Food Scan (Lua-atomic with rules)
+    S->>G: POST /api/v1/scan/food<br/>{qr_payload}
+    G->>R: Execute Lua food scan script atomically:<br/>HGET foodrules:{eventId} → get limit<br/>Check current count vs limit<br/>HINCRBY consumption if allowed<br/>LPUSH to foodlog (last 50)
+    alt Limit reached
+        G-->>S: 200 {status: "limit_reached", history}
+    else Allowed
+        G-->>S: 200 {status: "valid", consumption}
+        G->>R: PUBLISH counter update
+        G->>PG: asynq → INSERT INTO food_scans
+        G->>C: asynq → HMAC POST /internal/sync/food-consumption
+    end
+
+    Note over D,R: 4. Real-time Dashboard (SSE)
+    D->>G: GET /api/v1/events/{eventId}/live (SSE)
+    G->>R: HGETALL counters:{eventId} → initial snapshot
+    G-->>D: SSE event: "snapshot" (full counter state)
+    G->>R: SUBSCRIBE event:{eventId}:scans
+    loop On each scan
+        R-->>G: Pub/Sub message (counter update)
+        G-->>D: SSE event: "counters" (delta)
+    end
+
+    Note over S,S: 5. Offline Resilience
+    S->>S: Network lost → queue scans in IndexedDB
+    S->>S: Network restored → replay pending scans
+    S->>G: Sequential POST for each queued scan
+```
+
+### Data Store Responsibilities
+
+```mermaid
+graph LR
+    subgraph Redis["Redis 8 — Hot Path (in-memory)"]
+        R1["Lua Scripts<br/><i>atomic check-in dedup<br/>food rule enforcement</i>"]
+        R2a["Atomic Counters<br/><i>HINCRBY attendance, food served<br/>per-category, per-stall</i>"]
+        R3["Pub/Sub<br/><i>event:{eventId}:scans<br/>→ SSE broker → dashboard</i>"]
+        R4["Scan Cache<br/><i>guest profiles, check-in state<br/>food consumption, food rules</i>"]
+        R5["Job Queue<br/><i>asynq: QR gen, cards,<br/>SMS, PG writes, Convex sync</i>"]
+        R6["Sessions<br/><i>session:{token}<br/>device → event+stall scope</i>"]
+    end
+
+    subgraph PG["PostgreSQL 17 — Durable Storage"]
+        P1["entry_scans<br/><i>idempotency_key UNIQUE<br/>event_id, guest_id, stall_id<br/>status, additional_guests</i>"]
+        P2["food_scans<br/><i>idempotency_key UNIQUE<br/>food_category_id, consumption_count<br/>is_anonymous, guest_category</i>"]
+        P3["event_counters<br/><i>attendance, scans_total<br/>per-category breakdowns</i>"]
+        P4["PgBouncer<br/><i>150 pool size<br/>10K max client connections</i>"]
+    end
+
+    subgraph ConvexDB["Convex — Canonical Source"]
+        C1["events<br/><i>config, status lifecycle<br/>draft→active→live→completed</i>"]
+        C2["guests<br/><i>qrUrls, cardImageUrl<br/>status: invited→checkedIn</i>"]
+        C3["vendors · stalls · categories<br/><i>hierarchy: type→category→stall</i>"]
+        C4["foodRules<br/><i>per-category limits<br/>guest category × food category</i>"]
+        C5["smsDeliveries · cardTemplates<br/><i>delivery tracking, template config</i>"]
+    end
+
+    style Redis fill:#fef3c7,stroke:#d97706
+    style PG fill:#dcfce7,stroke:#16a34a
+    style ConvexDB fill:#e0f2fe,stroke:#0284c7
+```
+
+### Consistency Model
+
+| Path | Speed | Guarantee | How |
+|------|-------|-----------|-----|
+| **Scan → Redis** | Sub-ms | Atomic (Lua script) | Single Redis transaction, no race conditions |
+| **Redis → PostgreSQL** | Async (~100ms) | Eventual, idempotent | asynq task with `ON CONFLICT DO NOTHING` |
+| **Redis → Convex** | Async (~200ms) | Eventual, HMAC-verified | asynq task with retry (5 attempts) |
+| **Convex → Redis** | On "go live" | Full sync | Bulk-load entire event dataset to Redis hashes |
+| **Scanner → Go** (offline) | On reconnect | Sequential replay | IndexedDB queue, idempotency keys prevent dupes |
 
 ## Tech Stack
 
