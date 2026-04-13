@@ -1,0 +1,223 @@
+# docker-compose.vps.yml
+# Standalone production deployment for any VPS — no Dokploy required.
+# Includes Caddy as reverse proxy with automatic HTTPS.
+#
+# Usage:
+#   cp .env.production.example .env
+#   # Fill in .env values
+#   docker compose -f docker-compose.vps.yml up -d
+#
+# Or use the deploy script:
+#   curl -sSL https://raw.githubusercontent.com/your-org/eventarc/master/deploy.sh | bash
+
+services:
+  # ── Caddy (reverse proxy + automatic HTTPS) ─────────────────────────
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      FRONTEND_DOMAIN: ${FRONTEND_DOMAIN}
+      API_DOMAIN: ${API_DOMAIN}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - frontend
+      - internal
+    depends_on:
+      frontend:
+        condition: service_started
+      api:
+        condition: service_healthy
+
+  # ── Frontend (React SPA via nginx) ──────────────────────────────────
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      args:
+        VITE_CONVEX_URL: ${VITE_CONVEX_URL}
+        VITE_CONVEX_SITE_URL: ${VITE_CONVEX_SITE_URL}
+        VITE_API_URL: ${VITE_API_URL}
+    restart: unless-stopped
+    expose:
+      - "80"
+    networks:
+      - frontend
+    depends_on:
+      api:
+        condition: service_healthy
+
+  # ── Go API Server ───────────────────────────────────────────────────
+  api:
+    build:
+      context: ./backend
+      target: server
+    restart: unless-stopped
+    expose:
+      - "8080"
+    environment:
+      - ENV=production
+      - PORT=8080
+      - HMAC_SECRET=${HMAC_SECRET}
+      - DATABASE_URL=postgres://eventarc:${PG_PASSWORD}@pgbouncer:5432/eventarc?sslmode=disable
+      - REDIS_URL=redis://redis:6379
+      - R2_ACCOUNT_ID=${R2_ACCOUNT_ID}
+      - R2_ACCESS_KEY_ID=${R2_ACCESS_KEY_ID}
+      - R2_SECRET_ACCESS_KEY=${R2_SECRET_ACCESS_KEY}
+      - R2_BUCKET_NAME=${R2_BUCKET_NAME:-eventarc-qr}
+      - R2_PUBLIC_URL=${R2_PUBLIC_URL}
+      - CONVEX_URL=${CONVEX_URL}
+      - CONVEX_DEPLOYMENT_TOKEN=${CONVEX_DEPLOYMENT_TOKEN}
+      - SMS_PROVIDER_API_KEY=${SMS_PROVIDER_API_KEY:-}
+      - SMS_PROVIDER_SENDER_ID=${SMS_PROVIDER_SENDER_ID:-}
+      - SMS_PROVIDER_BASE_URL=${SMS_PROVIDER_BASE_URL:-https://api.sms.net.bd}
+      - ALLOWED_ORIGINS=https://${FRONTEND_DOMAIN}
+      - GOMAXPROCS=${GOMAXPROCS:-4}
+    networks:
+      - frontend
+      - internal
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/api/v1/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    depends_on:
+      pgbouncer:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ── Go Background Worker ────────────────────────────────────────────
+  worker:
+    build:
+      context: ./backend
+      target: worker
+    restart: unless-stopped
+    environment:
+      - ENV=production
+      - HMAC_SECRET=${HMAC_SECRET}
+      - DATABASE_URL=postgres://eventarc:${PG_PASSWORD}@pgbouncer:5432/eventarc?sslmode=disable
+      - REDIS_URL=redis://redis:6379
+      - R2_ACCOUNT_ID=${R2_ACCOUNT_ID}
+      - R2_ACCESS_KEY_ID=${R2_ACCESS_KEY_ID}
+      - R2_SECRET_ACCESS_KEY=${R2_SECRET_ACCESS_KEY}
+      - R2_BUCKET_NAME=${R2_BUCKET_NAME:-eventarc-qr}
+      - R2_PUBLIC_URL=${R2_PUBLIC_URL}
+      - CONVEX_URL=${CONVEX_URL}
+      - CONVEX_DEPLOYMENT_TOKEN=${CONVEX_DEPLOYMENT_TOKEN}
+      - SMS_PROVIDER_API_KEY=${SMS_PROVIDER_API_KEY:-}
+      - SMS_PROVIDER_SENDER_ID=${SMS_PROVIDER_SENDER_ID:-}
+      - SMS_PROVIDER_BASE_URL=${SMS_PROVIDER_BASE_URL:-https://api.sms.net.bd}
+      - GOMAXPROCS=${WORKER_GOMAXPROCS:-2}
+      - GOMEMLIMIT=${WORKER_GOMEMLIMIT:-450MiB}
+      - ASYNQ_CONCURRENCY=${ASYNQ_CONCURRENCY:-64}
+    networks:
+      - internal
+    deploy:
+      resources:
+        limits:
+          memory: ${WORKER_MEMORY_LIMIT:-512M}
+          cpus: "${WORKER_CPU_LIMIT:-2}"
+    depends_on:
+      pgbouncer:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ── PostgreSQL 17 ───────────────────────────────────────────────────
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: eventarc
+      POSTGRES_USER: eventarc
+      POSTGRES_PASSWORD: ${PG_PASSWORD}
+    command: >
+      postgres
+      -c shared_buffers=256MB
+      -c work_mem=4MB
+      -c max_connections=200
+      -c effective_cache_size=512MB
+      -c maintenance_work_mem=64MB
+      -c random_page_cost=1.1
+      -c effective_io_concurrency=200
+      -c wal_buffers=16MB
+      -c max_wal_size=1GB
+      -c checkpoint_completion_target=0.9
+      -c log_min_duration_statement=200
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U eventarc"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # ── PgBouncer ───────────────────────────────────────────────────────
+  pgbouncer:
+    image: edoburu/pgbouncer:1.25.1
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgres://eventarc:${PG_PASSWORD}@postgres:5432/eventarc
+      POOL_MODE: transaction
+      DEFAULT_POOL_SIZE: "150"
+      MAX_CLIENT_CONN: "10000"
+      MIN_POOL_SIZE: "25"
+      RESERVE_POOL_SIZE: "10"
+      RESERVE_POOL_TIMEOUT: "3"
+      SERVER_LIFETIME: "3600"
+      SERVER_IDLE_TIMEOUT: "600"
+      AUTH_TYPE: scram-sha-256
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h localhost -p 5432"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # ── Redis 8 ─────────────────────────────────────────────────────────
+  redis:
+    image: redis:8-alpine
+    restart: unless-stopped
+    command: >
+      redis-server
+      --maxmemory ${REDIS_MAXMEMORY:-256mb}
+      --maxmemory-policy noeviction
+      --appendonly yes
+      --appendfsync everysec
+      --tcp-backlog 511
+      --tcp-keepalive 300
+    volumes:
+      - redisdata:/data
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  pgdata:
+  redisdata:
+  caddy_data:
+  caddy_config:
+
+networks:
+  frontend:
+    driver: bridge
+  internal:
+    driver: bridge

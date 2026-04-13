@@ -586,8 +586,31 @@ These are set in the Convex web dashboard, not in `.env`:
 
 ---
 
+## Deployment
+
+Three options, from easiest to most manual:
+
+| Method | HTTPS | Effort | Best For |
+|--------|-------|--------|----------|
+| **[Dokploy](docs/DEPLOY.md#option-1-dokploy-recommended)** | Auto (Traefik) | Lowest | Teams wanting a web UI for deploys |
+| **[VPS + Caddy](docs/DEPLOY.md#option-2-any-vps-with-docker-caddy-auto-https)** | Auto (Let's Encrypt) | Low | Any VPS with Docker |
+| **[Manual](docs/DEPLOY.md#option-3-manual-deployment-separate-services)** | You configure | Medium | Custom infrastructure |
+
+**Quick deploy** (VPS with Docker):
+
+```bash
+git clone https://github.com/your-org/eventarc.git && cd eventarc
+cp .env.production.example .env   # Fill in your values
+./deploy.sh                        # Auto-detects Dokploy vs standalone
+```
+
+See **[docs/DEPLOY.md](docs/DEPLOY.md)** for the full guide.
+
+---
+
 ## Documentation
 
+- [Deployment Guide](docs/DEPLOY.md) — Dokploy, VPS, and manual deployment instructions
 - [Infrastructure Sizing Guide](docs/SIZING-GUIDE.md) — Server configurations and cost estimates by event scale
 
 ---

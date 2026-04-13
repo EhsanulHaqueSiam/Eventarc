@@ -1,0 +1,236 @@
+# docker-compose.production.yml
+# Production deployment for Dokploy or any Docker Compose-capable host.
+#
+# Dokploy usage:
+#   1. Create a "Docker Compose" application in Dokploy
+#   2. Point it to this repo, set compose file to docker-compose.production.yml
+#   3. Add environment variables in Dokploy UI (see .env.production.example)
+#   4. Add domains via Dokploy UI for "frontend" and "api" services
+#   5. Deploy
+#
+# Manual VPS usage:
+#   docker compose -f docker-compose.production.yml up -d
+
+services:
+  # ── Frontend (React SPA via nginx) ──────────────────────────────────
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      args:
+        VITE_CONVEX_URL: ${VITE_CONVEX_URL}
+        VITE_CONVEX_SITE_URL: ${VITE_CONVEX_SITE_URL}
+        VITE_API_URL: ${VITE_API_URL}
+    restart: unless-stopped
+    expose:
+      - "80"
+    networks:
+      - dokploy-network
+      - internal
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.eventarc-frontend.rule=Host(`${FRONTEND_DOMAIN}`)"
+      - "traefik.http.routers.eventarc-frontend.entrypoints=websecure"
+      - "traefik.http.routers.eventarc-frontend.tls.certResolver=letsencrypt"
+      - "traefik.http.services.eventarc-frontend.loadbalancer.server.port=80"
+    depends_on:
+      api:
+        condition: service_healthy
+
+  # ── Go API Server ───────────────────────────────────────────────────
+  api:
+    build:
+      context: ./backend
+      target: server
+    restart: unless-stopped
+    expose:
+      - "8080"
+    environment:
+      - ENV=production
+      - PORT=8080
+      - HMAC_SECRET=${HMAC_SECRET}
+      - DATABASE_URL=postgres://eventarc:${PG_PASSWORD}@pgbouncer:5432/eventarc?sslmode=disable
+      - REDIS_URL=redis://redis:6379
+      - R2_ACCOUNT_ID=${R2_ACCOUNT_ID}
+      - R2_ACCESS_KEY_ID=${R2_ACCESS_KEY_ID}
+      - R2_SECRET_ACCESS_KEY=${R2_SECRET_ACCESS_KEY}
+      - R2_BUCKET_NAME=${R2_BUCKET_NAME:-eventarc-qr}
+      - R2_PUBLIC_URL=${R2_PUBLIC_URL}
+      - CONVEX_URL=${CONVEX_URL}
+      - CONVEX_DEPLOYMENT_TOKEN=${CONVEX_DEPLOYMENT_TOKEN}
+      - SMS_PROVIDER_API_KEY=${SMS_PROVIDER_API_KEY:-}
+      - SMS_PROVIDER_SENDER_ID=${SMS_PROVIDER_SENDER_ID:-}
+      - SMS_PROVIDER_BASE_URL=${SMS_PROVIDER_BASE_URL:-https://api.sms.net.bd}
+      - ALLOWED_ORIGINS=https://${FRONTEND_DOMAIN}
+      - GOMAXPROCS=${GOMAXPROCS:-4}
+    networks:
+      - dokploy-network
+      - internal
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.eventarc-api.rule=Host(`${API_DOMAIN}`)"
+      - "traefik.http.routers.eventarc-api.entrypoints=websecure"
+      - "traefik.http.routers.eventarc-api.tls.certResolver=letsencrypt"
+      - "traefik.http.services.eventarc-api.loadbalancer.server.port=8080"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/api/v1/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    depends_on:
+      pgbouncer:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ── Go Background Worker ────────────────────────────────────────────
+  worker:
+    build:
+      context: ./backend
+      target: worker
+    restart: unless-stopped
+    environment:
+      - ENV=production
+      - HMAC_SECRET=${HMAC_SECRET}
+      - DATABASE_URL=postgres://eventarc:${PG_PASSWORD}@pgbouncer:5432/eventarc?sslmode=disable
+      - REDIS_URL=redis://redis:6379
+      - R2_ACCOUNT_ID=${R2_ACCOUNT_ID}
+      - R2_ACCESS_KEY_ID=${R2_ACCESS_KEY_ID}
+      - R2_SECRET_ACCESS_KEY=${R2_SECRET_ACCESS_KEY}
+      - R2_BUCKET_NAME=${R2_BUCKET_NAME:-eventarc-qr}
+      - R2_PUBLIC_URL=${R2_PUBLIC_URL}
+      - CONVEX_URL=${CONVEX_URL}
+      - CONVEX_DEPLOYMENT_TOKEN=${CONVEX_DEPLOYMENT_TOKEN}
+      - SMS_PROVIDER_API_KEY=${SMS_PROVIDER_API_KEY:-}
+      - SMS_PROVIDER_SENDER_ID=${SMS_PROVIDER_SENDER_ID:-}
+      - SMS_PROVIDER_BASE_URL=${SMS_PROVIDER_BASE_URL:-https://api.sms.net.bd}
+      - GOMAXPROCS=${WORKER_GOMAXPROCS:-2}
+      - GOMEMLIMIT=${WORKER_GOMEMLIMIT:-450MiB}
+      - ASYNQ_CONCURRENCY=${ASYNQ_CONCURRENCY:-64}
+    networks:
+      - internal
+    deploy:
+      resources:
+        limits:
+          memory: ${WORKER_MEMORY_LIMIT:-512M}
+          cpus: "${WORKER_CPU_LIMIT:-2}"
+    depends_on:
+      pgbouncer:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ── PostgreSQL 17 ───────────────────────────────────────────────────
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: eventarc
+      POSTGRES_USER: eventarc
+      POSTGRES_PASSWORD: ${PG_PASSWORD}
+    command: >
+      postgres
+      -c shared_buffers=256MB
+      -c work_mem=4MB
+      -c max_connections=200
+      -c effective_cache_size=512MB
+      -c maintenance_work_mem=64MB
+      -c random_page_cost=1.1
+      -c effective_io_concurrency=200
+      -c wal_buffers=16MB
+      -c max_wal_size=1GB
+      -c checkpoint_completion_target=0.9
+      -c log_min_duration_statement=200
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U eventarc"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # ── PgBouncer (connection pooling) ──────────────────────────────────
+  pgbouncer:
+    image: edoburu/pgbouncer:1.25.1
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgres://eventarc:${PG_PASSWORD}@postgres:5432/eventarc
+      POOL_MODE: transaction
+      DEFAULT_POOL_SIZE: "150"
+      MAX_CLIENT_CONN: "10000"
+      MIN_POOL_SIZE: "25"
+      RESERVE_POOL_SIZE: "10"
+      RESERVE_POOL_TIMEOUT: "3"
+      SERVER_LIFETIME: "3600"
+      SERVER_IDLE_TIMEOUT: "600"
+      AUTH_TYPE: scram-sha-256
+      LOG_CONNECTIONS: "0"
+      LOG_DISCONNECTIONS: "0"
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h localhost -p 5432"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # ── Redis 8 ─────────────────────────────────────────────────────────
+  redis:
+    image: redis:8-alpine
+    restart: unless-stopped
+    command: >
+      redis-server
+      --maxmemory ${REDIS_MAXMEMORY:-256mb}
+      --maxmemory-policy noeviction
+      --appendonly yes
+      --appendfsync everysec
+      --tcp-backlog 511
+      --tcp-keepalive 300
+    volumes:
+      - redisdata:/data
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # ── Database Migrations (run once) ──────────────────────────────────
+  migrate:
+    build:
+      context: ./backend
+      target: server
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        echo "Waiting for PostgreSQL..."
+        while ! wget -q --spider http://pgbouncer:5432 2>/dev/null; do sleep 1; done
+        echo "Running migrations..."
+        /server migrate 2>/dev/null || echo "Migration command not available, skipping..."
+    environment:
+      - DATABASE_URL=postgres://eventarc:${PG_PASSWORD}@postgres:5432/eventarc?sslmode=disable
+    networks:
+      - internal
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+    profiles:
+      - migrate
+
+volumes:
+  pgdata:
+  redisdata:
+
+networks:
+  dokploy-network:
+    external: true
+  internal:
+    driver: bridge
