@@ -197,10 +197,69 @@ Plans:
 - [x] 10-01-PLAN.md -- Integration tests (testcontainers PG+Redis), config matrix (6 combos), QR security suite (12 attack vectors), SMS batch test (1000+ messages with mock provider)
 - [x] 10-02-PLAN.md -- k6 load test matrix (10K VUs, entry+food+SSE, all 6 configs), 60K image generation stress test (memory bounds, crash recovery), staging Docker Compose, test runner script
 
+---
+
+## Milestone v1.1: Post-Launch Hardening
+
+**Goal:** Fix critical bugs, add RBAC, restructure scanner URLs, harden security, optimize performance, and improve test coverage. Three parallel tracks: Security/Stability, Features, Testing/Quality.
+
+### Phase 11: Security & Stability Fixes
+**Goal**: Eliminate all critical security gaps and runtime crashes identified in the v1.0 audit
+**Depends on**: Phase 10 (v1.0 complete)
+**Requirements**: SECR-01, SECR-02, SECR-03, SECR-04, SECR-05, SECR-06, SECR-07, PERF-01, QUAL-01, QUAL-02, QUAL-03
+**Success Criteria** (what must be TRUE):
+  1. Go backend refuses to start if HMAC_SECRET is empty or under 32 bytes
+  2. SSE dashboard endpoint validates admin session cookie -- unauthenticated requests get 401
+  3. Redis device sessions have 48h TTL, sessions are cleaned up on event completion
+  4. Session creation endpoint rate-limited to 10/IP/min
+  5. Event deletion cascades to all child records (guests, foodRules, smsDeliveries, deviceSessions, cardTemplates)
+  6. React ErrorBoundary catches component crashes and shows recovery UI
+  7. Guest list pagination never exceeds Convex limits -- `.collect()` replaced with paginated queries
+  8. Shared `getApiBaseUrl()` utility replaces all scattered env var lookups
+  9. Shared HMAC signing function in Convex replaces 3 duplicate copies
+  10. Redis key naming centralized in `keys.go`
+**Plans**: 1 plan
+
+Plans:
+- [ ] 11-01-PLAN.md -- Security hardening (HMAC fail-fast, SSE auth, session TTL, rate limiting), data integrity (cascade deletion, pagination fix), code quality (shared API URL, shared HMAC signing, Redis key registry), React ErrorBoundary
+
+**Can run in parallel with**: Phase 12, Phase 13
+
+### Phase 12: RBAC, Scanner URLs & Features
+**Goal**: Event managers can log in and manage their assigned events, scanner uses event-specific URLs, SMS and export features are verified
+**Depends on**: Phase 10 (v1.0 complete)
+**Requirements**: RBAC-01, RBAC-02, RBAC-03, RBAC-04, RBAC-05, SCNR-01, SCNR-02, SCNR-03, SMST-01, SMST-02, SMST-03, CDNS-01, CDNS-02, CDNS-03, CDNS-04
+**Success Criteria** (what must be TRUE):
+  1. Admin can create event manager accounts and assign them to specific events
+  2. Event managers log in and see only their assigned events -- cannot create/delete events
+  3. Event managers can edit guests, vendors, cards, SMS for their assigned event
+  4. Admin and event managers can export event data to Excel
+  5. Central /scanner page shows "use your event-specific link" -- no multi-event selection
+  6. /{eventId}/scanner routes to vendor/stall selection for that specific event
+  7. SMS template editor saves per-event templates with working placeholder substitution
+  8. R2 storage uses structured key paths for QR images, cards, and templates
+
+**Can run in parallel with**: Phase 11, Phase 13
+
+### Phase 13: Testing & Quality Hardening
+**Goal**: Comprehensive test coverage for all critical paths -- Convex backend, E2E workflows, and cross-system integration contracts
+**Depends on**: Phase 11, Phase 12 (validates their output)
+**Requirements**: TEST-01, TEST-02, TEST-03, TEST-04, PERF-02, PERF-03, PERF-04, PERF-05
+**Success Criteria** (what must be TRUE):
+  1. E2E tests cover: event creation -> guest import -> QR generation -> card compositing -> SMS -> scanner scan -> dashboard update
+  2. Convex backend unit tests cover: event lifecycle transitions, guest import dedup, food rule validation, RBAC authorization
+  3. Integration test validates Convex-to-Go sync contract -- TypeScript payload shape matches Go struct deserialization
+  4. Frontend package.json has `test` and `test:watch` scripts
+  5. SMS recipient listing and delivery counting use indexed queries, not `.collect()` + filter
+  6. Event sync supports chunked transfer for >5K guests
+
+**Can run in parallel with**: Phase 11, Phase 12 (partially -- validation tests run after features land)
+
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10
+- v1.0: Phases 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10 (COMPLETE)
+- v1.1: Phases 11 + 12 (parallel) -> Phase 13 (validates 11+12)
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -214,3 +273,4 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10
 | 8. Invitation Card Editor & SMS Pipeline | 0/3 | Not started | - |
 | 9. Real-Time Admin Dashboard | 0/2 | Planned | - |
 | 10. Pre-Launch Hardening | 2/2 | Complete | 2026-04-12 |
+| 11. Security & Stability Fixes | 0/1 | Planned | - |
