@@ -107,8 +107,8 @@ For any VPS without Dokploy. Uses Caddy for automatic HTTPS certificates.
 
 ```bash
 # 1. Clone and configure
-git clone https://github.com/your-org/eventarc.git
-cd eventarc
+git clone https://github.com/EhsanulHaqueSiam/Eventarc.git
+cd Eventarc
 cp .env.production.example .env
 
 # 2. Edit .env with your values
@@ -329,3 +329,14 @@ cat backup_20260414.sql | docker exec -i <postgres-container> psql -U eventarc e
 | Worker not processing jobs | Check `docker compose logs worker` — verify Redis connection |
 | Caddy can't get SSL cert | Ensure ports 80/443 are open and DNS resolves to server IP |
 | PgBouncer connection refused | Check `PG_PASSWORD` matches between postgres and pgbouncer services |
+
+---
+
+## Deploy with AI Assistance
+
+If you'd rather have an AI walk you through deployment step-by-step, copy the ready-made prompt from **[AI_DEPLOY_PROMPT.md](AI_DEPLOY_PROMPT.md)** and paste it into Claude, ChatGPT, Codex, or any AI coding assistant. The prompt contains the full architecture context, every environment variable, migration steps, and troubleshooting — everything the AI needs to deploy EventArc without reading the codebase.
+
+Works with:
+- **Claude Code / Codex CLI** — the AI can SSH in and run commands directly
+- **ChatGPT / Claude web** — gives you copy-paste commands for your terminal
+- **Cursor / Windsurf / any AI IDE** — with terminal access

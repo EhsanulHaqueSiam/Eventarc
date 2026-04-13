@@ -8,7 +8,7 @@
 #   docker compose -f docker-compose.vps.yml up -d
 #
 # Or use the deploy script:
-#   curl -sSL https://raw.githubusercontent.com/your-org/eventarc/master/deploy.sh | bash
+#   curl -sSL https://raw.githubusercontent.com/EhsanulHaqueSiam/Eventarc/master/deploy.sh | bash
 
 services:
   # ── Caddy (reverse proxy + automatic HTTPS) ─────────────────────────

@@ -353,8 +353,8 @@ graph LR
 ### 1. Clone and install dependencies
 
 ```bash
-git clone https://github.com/your-org/eventarc.git
-cd eventarc
+git clone https://github.com/EhsanulHaqueSiam/Eventarc.git
+cd Eventarc
 
 # Install root + Convex dependencies
 pnpm install
@@ -599,7 +599,7 @@ Three options, from easiest to most manual:
 **Quick deploy** (VPS with Docker):
 
 ```bash
-git clone https://github.com/your-org/eventarc.git && cd eventarc
+git clone https://github.com/EhsanulHaqueSiam/Eventarc.git && cd Eventarc
 cp .env.production.example .env   # Fill in your values
 ./deploy.sh                        # Auto-detects Dokploy vs standalone
 ```
@@ -611,6 +611,7 @@ See **[docs/DEPLOY.md](docs/DEPLOY.md)** for the full guide.
 ## Documentation
 
 - [Deployment Guide](docs/DEPLOY.md) — Dokploy, VPS, and manual deployment instructions
+- [AI Deployment Prompt](docs/AI_DEPLOY_PROMPT.md) — Copy-paste prompt for Claude/ChatGPT/Codex to deploy for you
 - [Infrastructure Sizing Guide](docs/SIZING-GUIDE.md) — Server configurations and cost estimates by event scale
 
 ---

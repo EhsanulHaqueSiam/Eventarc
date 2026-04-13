@@ -5,7 +5,7 @@
 # Deploys the full EventArc stack on a fresh VPS with Docker.
 #
 # Usage:
-#   git clone https://github.com/your-org/eventarc.git && cd eventarc
+#   git clone https://github.com/EhsanulHaqueSiam/Eventarc.git && cd Eventarc
 #   cp .env.production.example .env
 #   # Edit .env with your values
 #   chmod +x deploy.sh && ./deploy.sh
