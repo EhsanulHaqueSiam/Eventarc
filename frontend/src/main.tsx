@@ -3,6 +3,7 @@ import ReactDOM from "react-dom/client";
 import { ConvexBetterAuthProvider } from "@convex-dev/better-auth/react";
 import { RouterProvider, createRouter } from "@tanstack/react-router";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { ErrorBoundary } from "@/components/error-boundary";
 import { Toaster } from "sonner";
 import { convex } from "./lib/convex";
 import { authClient } from "./lib/auth-client";
@@ -19,11 +20,13 @@ declare module "@tanstack/react-router" {
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <ConvexBetterAuthProvider client={convex} authClient={authClient}>
-      <TooltipProvider>
-        <RouterProvider router={router} />
-        <Toaster richColors position="bottom-right" />
-      </TooltipProvider>
-    </ConvexBetterAuthProvider>
+    <ErrorBoundary>
+      <ConvexBetterAuthProvider client={convex} authClient={authClient}>
+        <TooltipProvider>
+          <RouterProvider router={router} />
+          <Toaster richColors position="bottom-right" />
+        </TooltipProvider>
+      </ConvexBetterAuthProvider>
+    </ErrorBoundary>
   </React.StrictMode>,
 );

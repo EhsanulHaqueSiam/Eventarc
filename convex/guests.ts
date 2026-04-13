@@ -1,10 +1,15 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { internalMutation, mutation, query } from "./_generated/server";
 import { paginationOptsValidator } from "convex/server";
+import type { Id } from "./_generated/dataModel";
 import {
   validateGuestData,
   checkPhoneDuplicate,
 } from "./model/guests";
+import {
+  ensureEventEditAccess,
+  ensureEventReadAccess,
+} from "./authz";
 
 // ============================================================
 // MUTATIONS
@@ -18,8 +23,7 @@ export const create = mutation({
     categoryId: v.id("guestCategories"),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Authentication required");
+    await ensureEventEditAccess(ctx, args.eventId);
 
     const event = await ctx.db.get(args.eventId);
     if (!event) throw new Error("Event not found");
@@ -47,7 +51,7 @@ export const create = mutation({
       );
 
     const now = Date.now();
-    return await ctx.db.insert("guests", {
+    const guestId = await ctx.db.insert("guests", {
       eventId: args.eventId,
       name: args.name.trim(),
       phone: normalizedPhone,
@@ -56,6 +60,13 @@ export const create = mutation({
       createdAt: now,
       updatedAt: now,
     });
+
+    await ctx.db.patch(args.eventId, {
+      guestCount: (event.guestCount ?? 0) + 1,
+      updatedAt: now,
+    });
+
+    return guestId;
   },
 });
 
@@ -67,11 +78,9 @@ export const update = mutation({
     categoryId: v.optional(v.id("guestCategories")),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Authentication required");
-
     const guest = await ctx.db.get(args.guestId);
     if (!guest) throw new Error("Guest not found");
+    await ensureEventEditAccess(ctx, guest.eventId);
 
     const patch: Record<string, unknown> = { updatedAt: Date.now() };
 
@@ -117,13 +126,137 @@ export const update = mutation({
 export const remove = mutation({
   args: { guestId: v.id("guests") },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Authentication required");
-
     const guest = await ctx.db.get(args.guestId);
     if (!guest) throw new Error("Guest not found");
+    await ensureEventEditAccess(ctx, guest.eventId);
 
     await ctx.db.delete(args.guestId);
+    const event = await ctx.db.get(guest.eventId);
+    if (event) {
+      await ctx.db.patch(guest.eventId, {
+        guestCount: Math.max((event.guestCount ?? 0) - 1, 0),
+        updatedAt: Date.now(),
+      });
+    }
+  },
+});
+
+export const internalSetCardImage = internalMutation({
+  args: {
+    eventId: v.id("events"),
+    guestId: v.id("guests"),
+    cardImageUrl: v.string(),
+    cardImageKey: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const guest = await ctx.db.get(args.guestId);
+    if (!guest) {
+      throw new Error("Guest not found");
+    }
+    if (guest.eventId !== args.eventId) {
+      throw new Error("Guest does not belong to this event");
+    }
+
+    await ctx.db.patch(args.guestId, {
+      cardImageUrl: args.cardImageUrl,
+      cardImageKey: args.cardImageKey,
+      updatedAt: Date.now(),
+    });
+    return args.guestId;
+  },
+});
+
+export const internalMarkCheckedIn = internalMutation({
+  args: {
+    eventId: v.id("events"),
+    guestId: v.id("guests"),
+    checkedInAt: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const guest = await ctx.db.get(args.guestId);
+    if (!guest) {
+      throw new Error("Guest not found");
+    }
+    if (guest.eventId !== args.eventId) {
+      throw new Error("Guest does not belong to this event");
+    }
+    if (guest.status === "checkedIn") {
+      return args.guestId;
+    }
+
+    await ctx.db.patch(args.guestId, {
+      status: "checkedIn",
+      updatedAt: args.checkedInAt ?? Date.now(),
+    });
+    return args.guestId;
+  },
+});
+
+export const internalRecordFoodConsumption = internalMutation({
+  args: {
+    eventId: v.id("events"),
+    idempotencyKey: v.string(),
+    guestId: v.string(),
+    foodCategoryId: v.id("vendorCategories"),
+    stallId: v.id("stalls"),
+    scannedAt: v.number(),
+    deviceId: v.string(),
+    guestCategory: v.optional(v.string()),
+    isAnonymous: v.boolean(),
+    consumptionCount: v.number(),
+    status: v.union(
+      v.literal("valid"),
+      v.literal("limit_reached"),
+      v.literal("rejected"),
+    ),
+  },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db
+      .query("foodScans")
+      .withIndex("by_idempotency_key", (q) =>
+        q.eq("idempotencyKey", args.idempotencyKey),
+      )
+      .unique();
+    if (existing) {
+      return existing._id;
+    }
+
+    const event = await ctx.db.get(args.eventId);
+    if (!event) {
+      throw new Error("Event not found");
+    }
+
+    const foodCategory = await ctx.db.get(args.foodCategoryId);
+    if (!foodCategory || foodCategory.eventId !== args.eventId) {
+      throw new Error("Food category not found for this event");
+    }
+
+    const stall = await ctx.db.get(args.stallId);
+    if (!stall || stall.eventId !== args.eventId) {
+      throw new Error("Stall not found for this event");
+    }
+
+    if (!args.isAnonymous) {
+      const guest = await ctx.db.get(args.guestId as Id<"guests">);
+      if (!guest || guest.eventId !== args.eventId) {
+        throw new Error("Guest not found for this event");
+      }
+    }
+
+    return await ctx.db.insert("foodScans", {
+      idempotencyKey: args.idempotencyKey,
+      eventId: args.eventId,
+      guestId: args.guestId,
+      foodCategoryId: args.foodCategoryId,
+      stallId: args.stallId,
+      scannedAt: args.scannedAt,
+      deviceId: args.deviceId,
+      guestCategory: args.guestCategory,
+      isAnonymous: args.isAnonymous,
+      consumptionCount: args.consumptionCount,
+      status: args.status,
+      createdAt: Date.now(),
+    });
   },
 });
 
@@ -134,7 +267,12 @@ export const remove = mutation({
 export const getById = query({
   args: { guestId: v.id("guests") },
   handler: async (ctx, args) => {
-    return await ctx.db.get(args.guestId);
+    const guest = await ctx.db.get(args.guestId);
+    if (!guest) {
+      return null;
+    }
+    await ensureEventReadAccess(ctx, guest.eventId);
+    return guest;
   },
 });
 
@@ -153,6 +291,13 @@ export const listByEvent = query({
     categoryId: v.optional(v.id("guestCategories")),
   },
   handler: async (ctx, args) => {
+    await ensureEventReadAccess(ctx, args.eventId);
+    // Guard against oversized client requests (Convex enforces max page size).
+    const safePaginationOpts = {
+      numItems: Math.max(1, Math.min(args.paginationOpts.numItems, 500)),
+      cursor: args.paginationOpts.cursor,
+    };
+
     // When filtering by status, use the compound index
     if (args.status) {
       const result = await ctx.db
@@ -161,7 +306,7 @@ export const listByEvent = query({
           q.eq("eventId", args.eventId).eq("status", args.status!),
         )
         .order("desc")
-        .paginate(args.paginationOpts);
+        .paginate(safePaginationOpts);
 
       // Post-filter by category if needed
       if (args.categoryId) {
@@ -180,7 +325,7 @@ export const listByEvent = query({
       .query("guests")
       .withIndex("by_event", (q) => q.eq("eventId", args.eventId))
       .order("desc")
-      .paginate(args.paginationOpts);
+      .paginate(safePaginationOpts);
 
     // Post-filter by category if needed
     if (args.categoryId) {
@@ -204,6 +349,8 @@ export const searchByName = query({
     categoryId: v.optional(v.id("guestCategories")),
   },
   handler: async (ctx, args) => {
+    await ensureEventReadAccess(ctx, args.eventId);
+
     if (!args.searchText.trim()) return [];
 
     return await ctx.db
@@ -229,6 +376,8 @@ export const searchByPhone = query({
     categoryId: v.optional(v.id("guestCategories")),
   },
   handler: async (ctx, args) => {
+    await ensureEventReadAccess(ctx, args.eventId);
+
     if (!args.searchText.trim()) return [];
 
     return await ctx.db
@@ -249,11 +398,51 @@ export const searchByPhone = query({
 export const countByEvent = query({
   args: { eventId: v.id("events") },
   handler: async (ctx, args) => {
-    const guests = await ctx.db
-      .query("guests")
-      .withIndex("by_event", (q) => q.eq("eventId", args.eventId))
-      .collect();
-    return guests.length;
+    await ensureEventReadAccess(ctx, args.eventId);
+
+    const event = await ctx.db.get(args.eventId);
+    if (!event) return 0;
+    return event.guestCount ?? 0;
+  },
+});
+
+export const listSmsRecipients = query({
+  args: { eventId: v.id("events") },
+  handler: async (ctx, args) => {
+    await ensureEventReadAccess(ctx, args.eventId);
+
+    // Paginated iteration to avoid crashing on large guest tables (60K+).
+    const recipients: Array<{
+      guestId: Id<"guests">;
+      name: string;
+      phone: string;
+      cardUrl: string;
+    }> = [];
+    let isDone = false;
+    let cursor: string | null = null;
+
+    while (!isDone) {
+      const page = await ctx.db
+        .query("guests")
+        .withIndex("by_event", (q) => q.eq("eventId", args.eventId))
+        .paginate({ numItems: 500, cursor: cursor as string | null });
+
+      for (const guest of page.page) {
+        if (guest.cardImageUrl) {
+          recipients.push({
+            guestId: guest._id,
+            name: guest.name,
+            phone: guest.phone,
+            cardUrl: guest.cardImageUrl,
+          });
+        }
+      }
+
+      isDone = page.isDone;
+      cursor = page.continueCursor;
+    }
+
+    return recipients;
   },
 });
 
@@ -272,6 +461,8 @@ export const checkDuplicatePhones = query({
     phones: v.array(v.string()),
   },
   handler: async (ctx, args) => {
+    await ensureEventReadAccess(ctx, args.eventId);
+
     const duplicates: Array<{
       phone: string;
       existingGuestId: string;
@@ -316,8 +507,7 @@ export const importBatch = mutation({
     ),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Authentication required");
+    await ensureEventEditAccess(ctx, args.eventId);
 
     const event = await ctx.db.get(args.eventId);
     if (!event) throw new Error("Event not found");
@@ -386,6 +576,13 @@ export const importBatch = mutation({
       inserted++;
     }
 
+    if (inserted > 0) {
+      await ctx.db.patch(args.eventId, {
+        guestCount: (event.guestCount ?? 0) + inserted,
+        updatedAt: now,
+      });
+    }
+
     return { inserted, errors, total: args.guests.length };
   },
 });
@@ -402,11 +599,9 @@ export const replaceGuest = mutation({
     categoryId: v.id("guestCategories"),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Authentication required");
-
     const guest = await ctx.db.get(args.guestId);
     if (!guest) throw new Error("Guest not found");
+    await ensureEventEditAccess(ctx, guest.eventId);
 
     const { errors, normalizedPhone } = validateGuestData({
       name: args.name,
