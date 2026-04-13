@@ -27,6 +27,7 @@ type createSessionRequest struct {
 	EventID          string `json:"eventId"`
 	VendorCategoryID string `json:"vendorCategoryId"`
 	VendorTypeID     string `json:"vendorTypeId"`
+	VendorType       string `json:"vendorType"`
 }
 
 type createSessionResponse struct {
@@ -38,6 +39,7 @@ type validateSessionResponse struct {
 	EventID          string    `json:"eventId"`
 	VendorCategoryID string    `json:"vendorCategoryId"`
 	VendorTypeID     string    `json:"vendorTypeId"`
+	VendorType       string    `json:"vendorType,omitempty"`
 	CreatedAt        time.Time `json:"createdAt"`
 }
 
@@ -54,6 +56,10 @@ func (h *SessionHandler) CreateSession(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "missing_fields", "All fields required: stallId, eventId, vendorCategoryId, vendorTypeId")
 		return
 	}
+	if req.VendorType != "" && req.VendorType != "entry" && req.VendorType != "food" {
+		writeError(w, http.StatusBadRequest, "invalid_vendor_type", "vendorType must be entry or food")
+		return
+	}
 
 	token, err := model.GenerateSessionToken()
 	if err != nil {
@@ -67,6 +73,7 @@ func (h *SessionHandler) CreateSession(w http.ResponseWriter, r *http.Request) {
 		EventID:          req.EventID,
 		VendorCategoryID: req.VendorCategoryID,
 		VendorTypeID:     req.VendorTypeID,
+		VendorType:       req.VendorType,
 		CreatedAt:        time.Now(),
 	}
 
@@ -76,9 +83,9 @@ func (h *SessionHandler) CreateSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Store in Redis with no expiry (D-05: sessions last until event ends)
+	// Store in Redis with 48h TTL -- sessions auto-expire, cleaned up on event completion
 	key := "session:" + token
-	if err := h.redis.Set(r.Context(), key, data, 0).Err(); err != nil {
+	if err := h.redis.Set(r.Context(), key, data, 48*time.Hour).Err(); err != nil {
 		writeError(w, http.StatusInternalServerError, "redis_error", "Failed to store session")
 		return
 	}
@@ -122,6 +129,7 @@ func (h *SessionHandler) ValidateSession(w http.ResponseWriter, r *http.Request)
 		EventID:          session.EventID,
 		VendorCategoryID: session.VendorCategoryID,
 		VendorTypeID:     session.VendorTypeID,
+		VendorType:       session.VendorType,
 		CreatedAt:        session.CreatedAt,
 	})
 }

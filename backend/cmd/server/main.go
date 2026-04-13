@@ -16,6 +16,7 @@ import (
 	"github.com/redis/go-redis/v9"
 
 	"github.com/ehsanul-haque-siam/eventarc/internal/config"
+	"github.com/ehsanul-haque-siam/eventarc/internal/convexsync"
 	"github.com/ehsanul-haque-siam/eventarc/internal/handler"
 	"github.com/ehsanul-haque-siam/eventarc/internal/middleware"
 	"github.com/ehsanul-haque-siam/eventarc/internal/scan"
@@ -24,6 +25,7 @@ import (
 
 func main() {
 	cfg := config.Load()
+	cfg.ValidateRequired()
 
 	// Configure structured logging
 	var logHandler slog.Handler
@@ -69,16 +71,10 @@ func main() {
 	// Public endpoints
 	r.Get("/api/v1/health", handler.NewHealthHandler(redisClient, pgPool))
 
-	// HMAC-protected endpoints
-	r.Route("/api/v1/sync", func(r chi.Router) {
-		r.Use(middleware.HMACAuth(cfg.HMACSecret))
-		r.Post("/event", handler.HandleSyncEvent)
-	})
-
 	// Public scanner endpoints (no HMAC — vendors have no credentials per VSCN-01)
 	r.Route("/api/v1/session", func(r chi.Router) {
 		sh := handler.NewSessionHandler(redisClient)
-		r.Post("/", sh.CreateSession)
+		r.With(middleware.RateLimit(redisClient, 10, time.Minute, "session")).Post("/", sh.CreateSession)
 		r.Get("/", sh.ValidateSession)
 	})
 	// Admin-protected session management
@@ -88,9 +84,24 @@ func main() {
 		r.Delete("/{token}", sh.RevokeSession)
 	})
 
-	// Scan processing (unauthenticated — QR payload HMAC is the auth mechanism)
+	// Scan processing (session token + QR payload HMAC validation)
 	scanSvc := scan.NewService(redisClient, pgPool, []byte(cfg.HMACSecret))
 	scanSvc.SetAsynqClient(asynqClient)
+	scanSvc.SetConvexClient(convexsync.NewClient(cfg.ConvexURL, cfg.HMACSecret))
+
+	recoveryCtx, cancelRecovery := context.WithTimeout(ctx, 20*time.Second)
+	if err := scanSvc.RunStartupRecovery(recoveryCtx); err != nil {
+		slog.Warn("startup drift recovery completed with errors", "error", err)
+	}
+	cancelRecovery()
+
+	// HMAC-protected sync endpoints (Convex -> Go cache sync).
+	r.Route("/api/v1/sync", func(r chi.Router) {
+		r.Use(middleware.HMACAuth(cfg.HMACSecret))
+		r.Post("/event", handler.HandleSyncEvent(scanSvc))
+		r.Post("/food-rules", handler.HandleFoodRulesSync(scanSvc))
+	})
+
 	r.Route("/api/v1/scan", func(r chi.Router) {
 		r.Post("/entry", scan.HandleEntryScan(scanSvc))
 		r.Post("/food", scan.HandleFoodScan(scanSvc))
@@ -120,10 +131,12 @@ func main() {
 		r.Get("/progress", smsHandler.HandleSMSProgress)
 	})
 
-	// Live dashboard SSE endpoint (admin auth via cookie — Phase 1 Better Auth)
-	// TODO(phase-10): Add admin session validation middleware (Better Auth cookie check)
+	// Live dashboard SSE endpoint (admin auth via Better Auth session cookie)
 	sseBroker := sse.NewSSEBroker()
-	r.Get("/api/v1/events/{eventId}/live", sse.NewLiveHandler(sseBroker, redisClient))
+	r.Route("/api/v1/events/{eventId}/live", func(r chi.Router) {
+		r.Use(middleware.AdminAuth(cfg.ConvexURL))
+		r.Get("/", sse.NewLiveHandler(sseBroker, redisClient))
+	})
 
 	// Create server
 	srv := &http.Server{

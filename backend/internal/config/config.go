@@ -1,6 +1,9 @@
 package config
 
-import "os"
+import (
+	"log"
+	"os"
+)
 
 // Config holds application configuration loaded from environment variables.
 type Config struct {
@@ -51,6 +54,14 @@ func Load() *Config {
 // IsProduction returns true when the environment is set to production.
 func (c *Config) IsProduction() bool {
 	return c.Env == "production"
+}
+
+// ValidateRequired checks that critical configuration values are present and
+// valid. It calls log.Fatal (immediate process exit) if any check fails.
+func (c *Config) ValidateRequired() {
+	if len(c.HMACSecret) < 32 {
+		log.Fatalf("FATAL: HMAC_SECRET must be set and at least 32 bytes (got %d bytes)", len(c.HMACSecret))
+	}
 }
 
 func getEnv(key, fallback string) string {
