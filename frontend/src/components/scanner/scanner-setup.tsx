@@ -1,28 +1,36 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "convex/react";
 import { api } from "convex/_generated/api";
 import type { Id } from "convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CascadingSelect } from "./cascading-select";
+import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { ShieldCheck, UtensilsCrossed } from "lucide-react";
 
 interface ScannerSetupProps {
   onSessionCreated: () => void;
+  fixedEventId?: string;
   createSession: (params: {
     stallId: string;
     eventId: string;
     vendorCategoryId: string;
     vendorTypeId: string;
+    vendorType: "entry" | "food";
     stallName: string;
+    eventName?: string;
   }) => Promise<boolean>;
 }
 
 export function ScannerSetup({
   onSessionCreated,
+  fixedEventId,
   createSession,
 }: ScannerSetupProps) {
-  const [selectedEvent, setSelectedEvent] = useState<string | null>(null);
+  const [selectedEventState, setSelectedEventState] = useState<string | null>(
+    fixedEventId ?? null,
+  );
   const [selectedVendorType, setSelectedVendorType] = useState<string | null>(
     null,
   );
@@ -30,13 +38,31 @@ export function ScannerSetup({
   const [selectedStall, setSelectedStall] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
 
-  // Fetch live events only
-  const events = useQuery(api.events.list, { status: "live" });
+  const selectedEvent = fixedEventId ?? selectedEventState;
+
+  // Fetch live events (used for central scanner and fixed-event validation/name)
+  const liveEvents = useQuery(api.events.list, { status: "live" });
+  const fixedEvent = useMemo(
+    () =>
+      fixedEventId
+        ? liveEvents?.find((event) => event._id === fixedEventId) ?? null
+        : null,
+    [fixedEventId, liveEvents],
+  );
+  const isFixedEventInvalid =
+    Boolean(fixedEventId) &&
+    Array.isArray(liveEvents) &&
+    !liveEvents.some((event) => event._id === fixedEventId);
+  const canQueryVendorTypes = Boolean(
+    selectedEvent && (!fixedEventId || fixedEvent),
+  );
 
   // Fetch vendor types for selected event
   const vendorTypes = useQuery(
     api.vendorTypes.listByEvent,
-    selectedEvent ? { eventId: selectedEvent as Id<"events"> } : "skip",
+    canQueryVendorTypes
+      ? { eventId: selectedEvent as Id<"events"> }
+      : "skip",
   );
 
   // Fetch categories for selected vendor type
@@ -55,15 +81,21 @@ export function ScannerSetup({
       : "skip",
   );
 
+  const selectedVendorTypeName = vendorTypes?.find(
+    (vt) => vt._id === selectedVendorType,
+  )?.name;
   const allSelected =
-    selectedEvent && selectedVendorType && selectedCategory && selectedStall;
+    selectedEvent &&
+    selectedVendorType &&
+    selectedVendorTypeName &&
+    selectedCategory &&
+    selectedStall;
 
-  // Find stall name for the selected stall
   const selectedStallName =
     stalls?.find((s) => s._id === selectedStall)?.name ?? "";
 
   const handleEventChange = (value: string) => {
-    setSelectedEvent(value);
+    setSelectedEventState(value);
     setSelectedVendorType(null);
     setSelectedCategory(null);
     setSelectedStall(null);
@@ -80,8 +112,12 @@ export function ScannerSetup({
     setSelectedStall(null);
   };
 
+  const selectedEventName = fixedEvent?.name
+    ?? liveEvents?.find((e) => e._id === selectedEvent)?.name
+    ?? "";
+
   const handleStartScanning = async () => {
-    if (!allSelected) return;
+    if (!allSelected || !selectedVendorTypeName) return;
     setIsCreating(true);
     try {
       const success = await createSession({
@@ -89,31 +125,50 @@ export function ScannerSetup({
         eventId: selectedEvent,
         vendorCategoryId: selectedCategory,
         vendorTypeId: selectedVendorType,
+        vendorType: selectedVendorTypeName,
         stallName: selectedStallName,
+        eventName: selectedEventName,
       });
       if (success) {
         onSessionCreated();
       } else {
-        toast.error("Failed to create session. Please try again.");
+        toast.error("Couldn't connect to station. Check your connection and try again.");
       }
     } catch {
-      toast.error("Failed to create session. Please try again.");
+      toast.error("Couldn't connect to station. Check your connection and try again.");
     } finally {
       setIsCreating(false);
     }
   };
 
+  const stationTypeCards = [
+    {
+      id: vendorTypes?.find((vt) => vt.name === "entry")?._id ?? null,
+      type: "entry",
+      title: "Entry Volunteer",
+      subtitle: "Go to Entry Gate",
+      Icon: ShieldCheck,
+    },
+    {
+      id: vendorTypes?.find((vt) => vt.name === "food")?._id ?? null,
+      type: "food",
+      title: "Food Volunteer",
+      subtitle: "Go to Food Stall",
+      Icon: UtensilsCrossed,
+    },
+  ] as const;
+
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4">
       <div className="mb-8 text-center">
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">
+        <h1 className="font-display text-2xl font-semibold tracking-tight text-foreground">
           EventArc
         </h1>
       </div>
 
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle className="text-center text-2xl font-semibold">
+          <CardTitle className="text-center font-display text-2xl font-semibold">
             Select Your Station
           </CardTitle>
           <p className="text-center text-base text-muted-foreground">
@@ -121,25 +176,60 @@ export function ScannerSetup({
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
-          <CascadingSelect
-            label="Event"
-            placeholder="Select an event"
-            options={events?.map((e) => ({ value: e._id, label: e.name }))}
-            value={selectedEvent}
-            onChange={handleEventChange}
-          />
+          {fixedEventId ? (
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">Event</label>
+              <div className="rounded-lg border bg-muted/30 px-3 py-2.5 text-sm">
+                {fixedEvent ? (
+                  <span className="font-medium">{fixedEvent.name}</span>
+                ) : isFixedEventInvalid ? (
+                  <span className="text-destructive">
+                    Invalid scanner link or event is not live
+                  </span>
+                ) : (
+                  <span className="text-muted-foreground">Loading event...</span>
+                )}
+              </div>
+            </div>
+          ) : (
+            <CascadingSelect
+              label="Event"
+              placeholder="Select an event"
+              options={liveEvents?.map((e) => ({ value: e._id, label: e.name }))}
+              value={selectedEvent}
+              onChange={handleEventChange}
+            />
+          )}
 
-          <CascadingSelect
-            label="Vendor Type"
-            placeholder="Select vendor type"
-            options={vendorTypes?.map((vt) => ({
-              value: vt._id,
-              label: vt.name === "entry" ? "Entry" : "Food",
-            }))}
-            value={selectedVendorType}
-            onChange={handleVendorTypeChange}
-            visible={!!selectedEvent}
-          />
+          {!!selectedEvent && !isFixedEventInvalid && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">Station Type</label>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {stationTypeCards.map((card) => {
+                  if (!card.id) return null;
+                  const isSelected = selectedVendorType === card.id;
+                  return (
+                    <button
+                      key={card.type}
+                      type="button"
+                      onClick={() => handleVendorTypeChange(card.id!)}
+                      className={cn(
+                        "rounded-xl border bg-card p-4 text-left transition-all",
+                        "hover:border-primary/60 hover:shadow-sm",
+                        isSelected && "border-primary ring-2 ring-primary/20",
+                      )}
+                    >
+                      <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-100 text-emerald-600">
+                        <card.Icon className="size-6" />
+                      </div>
+                      <p className="font-semibold text-foreground">{card.title}</p>
+                      <p className="text-sm text-muted-foreground">{card.subtitle}</p>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           <CascadingSelect
             label="Category"

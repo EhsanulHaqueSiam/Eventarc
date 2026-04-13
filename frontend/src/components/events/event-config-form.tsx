@@ -19,16 +19,17 @@ interface EventConfigFormProps {
     foodQrMode: "guestLinked" | "anonymous";
     foodQrTiming: "preSent" | "postEntry";
   };
+  canEdit?: boolean;
 }
 
-export function EventConfigForm({ eventId, status, config }: EventConfigFormProps) {
+export function EventConfigForm({ eventId, status, config, canEdit = true }: EventConfigFormProps) {
   const updateConfig = useMutation(api.events.updateConfig);
   const [qrStrategy, setQrStrategy] = useState(config.qrStrategy);
   const [foodQrMode, setFoodQrMode] = useState(config.foodQrMode);
   const [foodQrTiming, setFoodQrTiming] = useState(config.foodQrTiming);
   const [isSaving, setIsSaving] = useState(false);
 
-  const isLocked = status === "live" || status === "completed" || status === "archived";
+  const isLocked = !canEdit || status === "live" || status === "completed" || status === "archived";
   const hasChanges =
     qrStrategy !== config.qrStrategy ||
     foodQrMode !== config.foodQrMode ||
@@ -47,9 +48,9 @@ export function EventConfigForm({ eventId, status, config }: EventConfigFormProp
         eventId,
         config: { qrStrategy, foodQrMode, foodQrTiming },
       });
-      toast.success("Configuration saved");
+      toast.success("Event settings saved");
     } catch {
-      toast.error("Failed to save configuration");
+      toast.error("Couldn't save settings. Please try again.");
     } finally {
       setIsSaving(false);
     }

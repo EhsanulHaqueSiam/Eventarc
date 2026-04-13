@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { FoodRulesMatrix } from "./food-rules-matrix";
 import {
   Sheet,
   SheetContent,
@@ -36,9 +37,10 @@ import { toast } from "sonner";
 
 interface VendorsTabProps {
   eventId: Id<"events">;
+  canEdit?: boolean;
 }
 
-export function VendorsTab({ eventId }: VendorsTabProps) {
+export function VendorsTab({ eventId, canEdit = true }: VendorsTabProps) {
   const vendorData = useQuery(api.vendors.listByEvent, { eventId });
   const createCategory = useMutation(api.vendors.createCategory);
   const removeVendorCategory = useMutation(api.vendors.removeCategory);
@@ -54,6 +56,8 @@ export function VendorsTab({ eventId }: VendorsTabProps) {
   } | null>(null);
   const [newStallName, setNewStallName] = useState("");
   const [addingStall, setAddingStall] = useState(false);
+
+  const foodCategories = vendorData?.food.categories ?? [];
 
   const handleAddCategory = async (type: "entry" | "food") => {
     if (!newCategoryName.trim()) return;
@@ -113,18 +117,22 @@ export function VendorsTab({ eventId }: VendorsTabProps) {
     const section = vendorData[type];
     return (
       <div className="space-y-4">
-        <h3 className="text-lg font-semibold">{label}</h3>
+        <h3 className="font-display text-lg font-semibold">{label}</h3>
 
         {section.categories.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            No {type} categories yet. Add a category to start managing {type} vendor stalls.
-          </p>
+          <div className="rounded-xl bg-muted/30 py-8 text-center">
+            <p className="text-sm font-medium">No {type} categories yet</p>
+            <p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">
+              Add a category to start managing {type} vendor stalls and scanning stations.
+            </p>
+          </div>
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {section.categories.map((cat) => (
               <Card key={cat._id}>
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
                   <CardTitle className="text-base">{cat.name}</CardTitle>
+                  {canEdit && (
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
                       <Button size="icon" variant="ghost" className="size-7 text-destructive">
@@ -149,6 +157,7 @@ export function VendorsTab({ eventId }: VendorsTabProps) {
                       </AlertDialogFooter>
                     </AlertDialogContent>
                   </AlertDialog>
+                  )}
                 </CardHeader>
                 <CardContent>
                   <p className="text-sm text-muted-foreground">
@@ -169,7 +178,7 @@ export function VendorsTab({ eventId }: VendorsTabProps) {
           </div>
         )}
 
-        {addingType === type ? (
+        {canEdit && (addingType === type ? (
           <div className="flex items-center gap-2">
             <Input
               value={newCategoryName}
@@ -194,7 +203,7 @@ export function VendorsTab({ eventId }: VendorsTabProps) {
             <Plus className="mr-2 size-4" />
             Add {label.replace(" Vendors", "")} Category
           </Button>
-        )}
+        ))}
       </div>
     );
   };
@@ -211,6 +220,8 @@ export function VendorsTab({ eventId }: VendorsTabProps) {
     <div className="space-y-8">
       {renderSection("entry", "Entry Vendors")}
       {renderSection("food", "Food Vendors")}
+
+      <FoodRulesMatrix eventId={eventId} foodCategories={foodCategories} />
 
       {/* Stall management sheet */}
       <Sheet
@@ -229,9 +240,12 @@ export function VendorsTab({ eventId }: VendorsTabProps) {
           </SheetHeader>
           <div className="mt-4 space-y-4">
             {selectedCategoryStalls.length === 0 && !addingStall ? (
-              <p className="text-sm text-muted-foreground">
-                No stalls in this category. Add stalls to create scanning points.
-              </p>
+              <div className="py-6 text-center">
+                <p className="text-sm font-medium">No stalls yet</p>
+                <p className="mx-auto mt-1 max-w-[250px] text-sm text-muted-foreground">
+                  Add stalls to create scanning stations operators can connect to during the event.
+                </p>
+              </div>
             ) : (
               <Table>
                 <TableHeader>
@@ -255,6 +269,7 @@ export function VendorsTab({ eventId }: VendorsTabProps) {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">
+                        {canEdit && (
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
                             <Button
@@ -283,10 +298,11 @@ export function VendorsTab({ eventId }: VendorsTabProps) {
                             </AlertDialogFooter>
                           </AlertDialogContent>
                         </AlertDialog>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))}
-                  {addingStall && (
+                  {canEdit && addingStall && (
                     <TableRow>
                       <TableCell colSpan={3}>
                         <div className="flex items-center gap-2">
@@ -319,7 +335,7 @@ export function VendorsTab({ eventId }: VendorsTabProps) {
               </Table>
             )}
 
-            {!addingStall && (
+            {canEdit && !addingStall && (
               <Button
                 variant="outline"
                 size="sm"

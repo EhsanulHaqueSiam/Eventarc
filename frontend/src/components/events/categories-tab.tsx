@@ -29,9 +29,10 @@ import { toast } from "sonner";
 
 interface CategoriesTabProps {
   eventId: Id<"events">;
+  canEdit?: boolean;
 }
 
-export function CategoriesTab({ eventId }: CategoriesTabProps) {
+export function CategoriesTab({ eventId, canEdit = true }: CategoriesTabProps) {
   const categories = useQuery(api.categories.listByEvent, { eventId });
   const createCategory = useMutation(api.categories.create);
   const updateCategory = useMutation(api.categories.update);
@@ -138,6 +139,7 @@ export function CategoriesTab({ eventId }: CategoriesTabProps) {
               </TableCell>
               <TableCell className="text-muted-foreground">--</TableCell>
               <TableCell className="text-right">
+                {canEdit && (
                 <div className="flex items-center justify-end gap-1">
                   <Button
                     size="icon"
@@ -184,6 +186,7 @@ export function CategoriesTab({ eventId }: CategoriesTabProps) {
                     </AlertDialog>
                   )}
                 </div>
+                )}
               </TableCell>
             </TableRow>
           ))}
@@ -191,13 +194,15 @@ export function CategoriesTab({ eventId }: CategoriesTabProps) {
       </Table>
 
       {!hasCustomCategories && (
-        <p className="text-center text-sm text-muted-foreground">
-          No custom categories. The default &apos;General&apos; category is active.
-          Add custom categories to assign different privileges to guest groups.
-        </p>
+        <div className="rounded-xl bg-muted/30 py-8 text-center">
+          <p className="text-sm font-medium">Only the default category is active</p>
+          <p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">
+            Add custom categories to group guests with different privileges, such as VIP, Staff, or Press.
+          </p>
+        </div>
       )}
 
-      {isAdding ? (
+      {canEdit && (isAdding ? (
         <div className="flex items-center gap-2">
           <Input
             value={newName}
@@ -222,7 +227,7 @@ export function CategoriesTab({ eventId }: CategoriesTabProps) {
           <Plus className="mr-2 size-4" />
           Add Category
         </Button>
-      )}
+      ))}
     </div>
   );
 }
