@@ -238,6 +238,11 @@ Plans:
   6. /{eventId}/scanner routes to vendor/stall selection for that specific event
   7. SMS template editor saves per-event templates with working placeholder substitution
   8. R2 storage uses structured key paths for QR images, cards, and templates
+**Plans**: 2 plans
+
+Plans:
+- [ ] 12-01-PLAN.md -- RBAC enforcement (canEdit props, admin-only guards, event manager filtering) + scanner URL restructure (event-specific routing, event name display)
+- [ ] 12-02-PLAN.md -- SMS template verification (end-to-end flow, placeholder insertion) + R2 key path audit + Excel export with SMS delivery sheet
 
 **Can run in parallel with**: Phase 11, Phase 13
 
@@ -274,3 +279,5 @@ Plans:
 | 9. Real-Time Admin Dashboard | 0/2 | Planned | - |
 | 10. Pre-Launch Hardening | 2/2 | Complete | 2026-04-12 |
 | 11. Security & Stability Fixes | 0/1 | Planned | - |
+| 12. RBAC, Scanner URLs & Features | 0/2 | Planned | - |
+| 13. Testing & Quality Hardening | 0/? | Not started | - |
