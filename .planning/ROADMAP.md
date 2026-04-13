@@ -241,8 +241,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 12-01-PLAN.md -- RBAC enforcement (canEdit props, admin-only guards, event manager filtering) + scanner URL restructure (event-specific routing, event name display)
-- [ ] 12-02-PLAN.md -- SMS template verification (end-to-end flow, placeholder insertion) + R2 key path audit + Excel export with SMS delivery sheet
+- [x] 12-01-PLAN.md -- RBAC enforcement (canEdit props, admin-only guards, event manager filtering) + scanner URL restructure (event-specific routing, event name display)
+- [x] 12-02-PLAN.md -- SMS template verification (end-to-end flow, placeholder insertion) + R2 key path audit + Excel export with SMS delivery sheet
 
 **Can run in parallel with**: Phase 11, Phase 13
 
@@ -279,5 +279,5 @@ Plans:
 | 9. Real-Time Admin Dashboard | 0/2 | Planned | - |
 | 10. Pre-Launch Hardening | 2/2 | Complete | 2026-04-12 |
 | 11. Security & Stability Fixes | 0/1 | Planned | - |
-| 12. RBAC, Scanner URLs & Features | 0/2 | Planned | - |
+| 12. RBAC, Scanner URLs & Features | 2/2 | Complete   | 2026-04-13 |
 | 13. Testing & Quality Hardening | 0/? | Not started | - |

@@ -98,6 +98,68 @@ Requirements for initial release. Each maps to roadmap phases.
 - [ ] **INFR-04**: Strong consistency on scan hot path — no eventual consistency for consumption state
 - [ ] **INFR-05**: Background worker system (asynq) for async tasks: QR generation, image composition, SMS delivery
 
+## v1.1 Requirements — Post-Launch Hardening
+
+Requirements for stability, security, RBAC, and quality hardening after v1.0 launch.
+
+### Security & Stability (SECR)
+
+- [ ] **SECR-01**: HMAC secret must not default to empty string — fail fast on startup if unset or too short (<32 bytes)
+- [ ] **SECR-02**: SSE dashboard endpoint requires admin session validation — unauthenticated users cannot stream live event data
+- [ ] **SECR-03**: Device sessions must have Redis TTL (48h) — abandoned sessions auto-expire, cleanup on event completion/archive
+- [ ] **SECR-04**: Session creation endpoint has IP-based rate limiting (10 sessions/IP/minute)
+- [ ] **SECR-05**: Event deletion cascade includes guests, foodRules, foodScans, smsDeliveries, deviceSessions, cardTemplates — no orphaned records
+- [ ] **SECR-06**: React ErrorBoundary wraps the app — component crashes show recovery UI, not white screen
+- [ ] **SECR-07**: HMAC signature comparison in Convex uses constant-time comparison where runtime supports it
+
+### Performance & Pagination (PERF)
+
+- [ ] **PERF-01**: Guest list queries never `.collect()` more than page-size items — paginated iteration for all large-table access
+- [ ] **PERF-02**: SMS recipient listing uses indexed query, not full `.collect()` + in-memory filter
+- [ ] **PERF-03**: SMS delivery count uses counter documents or indexed `.count()`, not full collection + loop
+- [ ] **PERF-04**: Event sync to Go backend supports chunked transfer for events with >5K guests
+- [ ] **PERF-05**: Guest list filtered by status+category uses compound index, not post-filter pagination
+
+### RBAC & Access Control (RBAC)
+
+- [x] **RBAC-01**: Admin can create event manager accounts and assign them to specific events
+- [x] **RBAC-02**: Event managers can log in and see only their assigned events
+- [x] **RBAC-03**: Event managers can edit their assigned event (guests, vendors, cards, SMS) but cannot create/delete events
+- [x] **RBAC-04**: Admin can export full event data to Excel (guests, scans, SMS status, food consumption)
+- [x] **RBAC-05**: Event managers can export data for their assigned event only
+
+### Scanner & URL Restructure (SCNR)
+
+- [x] **SCNR-01**: Central /scanner page shows "use your event-specific scanner link" — no multi-event selection
+- [x] **SCNR-02**: Event-specific scanner URL format: /{eventId}/scanner — routes directly to vendor/stall selection for that event
+- [x] **SCNR-03**: Scanner page shows event name, stall context, and scan type (entry/food) clearly
+
+### SMS & Invitations (SMST)
+
+- [x] **SMST-01**: SMS message body editor with editable template and live preview
+- [x] **SMST-02**: SMS template supports placeholders: {cardUrl}, {name}, {phone}, {link}
+- [x] **SMST-03**: SMS template persists per-event (localStorage or database)
+
+### CDN & Storage (CDNS)
+
+- [x] **CDNS-01**: QR images stored in Cloudflare R2 with structured key paths: events/{eventId}/qr/{guestId}.png
+- [x] **CDNS-02**: Card composite images stored: events/{eventId}/cards/{guestId}.png
+- [x] **CDNS-03**: Background images stored: events/{eventId}/templates/{templateId}.png
+- [x] **CDNS-04**: R2 bucket properly configured with CORS and public read access via custom domain
+
+### Testing & Quality (TEST)
+
+- [ ] **TEST-01**: E2E tests cover full user workflows: event creation → guest import → QR generation → card compositing → SMS → scanner flow
+- [ ] **TEST-02**: Convex backend has unit tests for critical mutations: event lifecycle, guest import dedup, food rule validation, authorization checks
+- [ ] **TEST-03**: Integration test validates Convex-to-Go sync contract — field shape agreement between TypeScript and Go
+- [ ] **TEST-04**: Frontend vitest scripts in package.json (`test`, `test:watch`)
+
+### Code Quality (QUAL)
+
+- [ ] **QUAL-01**: Shared `getApiBaseUrl()` utility replaces scattered env var lookups (VITE_API_URL vs VITE_GO_API_URL)
+- [ ] **QUAL-02**: Shared HMAC signing function replaces 3 duplicate copies in Convex
+- [ ] **QUAL-03**: Redis key naming centralized in a `keys.go` utility — no scattered `fmt.Sprintf` patterns
+
 ## v2 Requirements
 
 Deferred to future release. Tracked but not in current roadmap.
