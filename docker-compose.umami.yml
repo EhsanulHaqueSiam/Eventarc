@@ -39,7 +39,10 @@ services:
       DATABASE_URL: postgresql://umami:${UMAMI_DB_PASSWORD}@umami-db:5432/umami
       DATABASE_TYPE: postgresql
       APP_SECRET: ${UMAMI_APP_SECRET}
-      DISABLE_LOGIN: "false"
+      # DISABLE_LOGIN intentionally omitted. Umami checks it as
+      # `if (process.env.DISABLE_LOGIN)`, and the string "false" is TRUTHY
+      # in JavaScript, which would lock everyone out with "Access denied".
+      # Leave it unset to enable login.
       TRACKER_SCRIPT_NAME: ${UMAMI_TRACKER_SCRIPT_NAME:-script}
     networks:
       - dokploy-network
