@@ -182,6 +182,48 @@ export const syncGuestCheckIn = httpAction(async (ctx, req) => {
   });
 });
 
+export const syncSMSStatus = httpAction(async (ctx, req) => {
+  const verified = await verifyAndParseBody(req);
+  if (!verified.ok) {
+    return verified.response;
+  }
+
+  const body = verified.json as {
+    event_id?: string;
+    guest_id?: string;
+    phone?: string;
+    status?: "queued" | "sending" | "sent" | "delivered" | "failed";
+    provider_request_id?: string;
+    failure_reason?: string;
+    last_attempt_at?: string;
+  };
+
+  if (!body.event_id || !body.guest_id || !body.phone || !body.status) {
+    return jsonResponse(400, {
+      error: {
+        code: "missing_fields",
+        message: "event_id, guest_id, phone, and status are required",
+      },
+    });
+  }
+
+  const lastAttemptAt = body.last_attempt_at
+    ? Date.parse(body.last_attempt_at)
+    : undefined;
+
+  await ctx.runMutation(internal.smsDeliveries.internalSyncStatus, {
+    eventId: body.event_id as Id<"events">,
+    guestId: body.guest_id as Id<"guests">,
+    phone: body.phone,
+    status: body.status,
+    providerRequestId: body.provider_request_id,
+    failureReason: body.failure_reason,
+    lastAttemptAt: Number.isFinite(lastAttemptAt) ? lastAttemptAt : undefined,
+  });
+
+  return jsonResponse(200, { status: "ok" });
+});
+
 export const syncFoodConsumption = httpAction(async (ctx, req) => {
   const verified = await verifyAndParseBody(req);
   if (!verified.ok) {

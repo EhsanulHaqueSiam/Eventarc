@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { internalMutation, mutation, query } from "./_generated/server";
 
 const statusValidator = v.union(
   v.literal("queued"),
@@ -144,5 +144,77 @@ export const markFailed = mutation({
       updatedAt: Date.now(),
     });
     return args.id;
+  },
+});
+
+// internalSyncStatus is called from the Go SMS worker (via the signed
+// /internal/sync/sms-status httpAction) whenever an SMS transitions to a
+// terminal state (sent, delivered, failed). Without this, Convex would
+// remain stuck on "queued" and the admin dashboard would show stale data
+// after Redis is flushed.
+//
+// Lookup is by (eventId, guestId) because Go does not know the Convex _id.
+// If multiple rows exist for the same guest (retry scenarios), the most
+// recent one is updated.
+export const internalSyncStatus = internalMutation({
+  args: {
+    eventId: v.id("events"),
+    guestId: v.id("guests"),
+    phone: v.string(),
+    status: statusValidator,
+    providerRequestId: v.optional(v.string()),
+    failureReason: v.optional(v.string()),
+    lastAttemptAt: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const deliveries = await ctx.db
+      .query("smsDeliveries")
+      .withIndex("by_guest", (q) => q.eq("guestId", args.guestId))
+      .collect();
+
+    // Filter to this event and sort by createdAt desc to grab the latest.
+    const row = deliveries
+      .filter((d) => d.eventId === args.eventId)
+      .sort((a, b) => b.createdAt - a.createdAt)[0];
+
+    if (!row) {
+      // No row exists yet — create one so we don't drop the status update.
+      const now = Date.now();
+      await ctx.db.insert("smsDeliveries", {
+        eventId: args.eventId,
+        guestId: args.guestId,
+        phone: args.phone,
+        status: args.status,
+        providerRequestId: args.providerRequestId,
+        failureReason: args.failureReason,
+        lastAttemptAt: args.lastAttemptAt,
+        deliveredAt: args.status === "delivered" ? now : undefined,
+        retryCount: 0,
+        createdAt: now,
+        updatedAt: now,
+      });
+      return;
+    }
+
+    const patch: Record<string, unknown> = {
+      status: args.status,
+      updatedAt: Date.now(),
+    };
+    if (args.providerRequestId !== undefined) {
+      patch.providerRequestId = args.providerRequestId;
+    }
+    if (args.failureReason !== undefined) {
+      patch.failureReason = args.failureReason;
+    }
+    if (args.lastAttemptAt !== undefined) {
+      patch.lastAttemptAt = args.lastAttemptAt;
+    }
+    if (args.status === "delivered") {
+      patch.deliveredAt = Date.now();
+    }
+    if (args.status === "failed") {
+      patch.retryCount = row.retryCount + 1;
+    }
+    await ctx.db.patch(row._id, patch);
   },
 });

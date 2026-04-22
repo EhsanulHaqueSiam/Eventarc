@@ -202,13 +202,25 @@ export const updateConfig = mutation({
         config: args.config,
         updatedAt: Date.now(),
       });
-      return args.eventId;
+    } else {
+      await ctx.db.patch(args.eventId, {
+        config: args.config,
+        updatedAt: Date.now(),
+      });
     }
 
-    await ctx.db.patch(args.eventId, {
-      config: args.config,
-      updatedAt: Date.now(),
-    });
+    // If the event is already live, push the updated config (foodQrMode,
+    // foodQrTiming, etc.) to Redis so scan validation sees the new values
+    // immediately. Non-live events don't have Redis state yet — the initial
+    // pushEventToGo on the draft→live transition will seed it.
+    if (event.status === "live") {
+      await ctx.scheduler.runAfter(0, internal.sync.pushEventToGo, {
+        eventId: args.eventId,
+      });
+      await ctx.scheduler.runAfter(0, internal.sync.syncFoodRules, {
+        eventId: args.eventId,
+      });
+    }
 
     return args.eventId;
   },

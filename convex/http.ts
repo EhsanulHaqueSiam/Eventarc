@@ -4,6 +4,7 @@ import {
   syncFoodConsumption,
   syncGuestCard,
   syncGuestCheckIn,
+  syncSMSStatus,
 } from "./internalGateway";
 
 const http = httpRouter();
@@ -25,6 +26,12 @@ http.route({
   path: "/internal/sync/food-consumption",
   method: "POST",
   handler: syncFoodConsumption,
+});
+
+http.route({
+  path: "/internal/sync/sms-status",
+  method: "POST",
+  handler: syncSMSStatus,
 });
 
 export default http;

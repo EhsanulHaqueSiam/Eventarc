@@ -13,14 +13,19 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o /worker ./cmd/worker
 
 # Server runtime
 FROM alpine:3.21 AS server
-RUN apk add --no-cache ca-certificates tzdata
+RUN apk add --no-cache ca-certificates tzdata wget \
+    && adduser -D -H -u 10001 app
 COPY --from=builder /server /server
-COPY --from=builder /app/migrations/ /migrations/
+# Migrations are embedded into the binary (see backend/migrations/embed.go),
+# so no need to copy the SQL files at runtime.
+USER app
 EXPOSE 8080
 CMD ["/server"]
 
 # Worker runtime
 FROM alpine:3.21 AS worker
-RUN apk add --no-cache ca-certificates tzdata
+RUN apk add --no-cache ca-certificates tzdata \
+    && adduser -D -H -u 10001 app
 COPY --from=builder /worker /worker
+USER app
 CMD ["/worker"]

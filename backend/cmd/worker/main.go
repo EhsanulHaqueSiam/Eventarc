@@ -17,6 +17,7 @@ import (
 	"github.com/ehsanul-haque-siam/eventarc/internal/convexsync"
 	"github.com/ehsanul-haque-siam/eventarc/internal/r2"
 	"github.com/ehsanul-haque-siam/eventarc/internal/scan"
+	"github.com/ehsanul-haque-siam/eventarc/internal/sms"
 	"github.com/ehsanul-haque-siam/eventarc/internal/worker"
 )
 
@@ -99,6 +100,16 @@ func main() {
 		},
 	)
 
+	// SMS pipeline — only wired when a provider API key is configured.
+	// The SMS worker syncs per-guest terminal status back to Convex so the
+	// admin smsDeliveries view doesn't drift from Redis counters.
+	var smsWorker *sms.SMSWorker
+	if cfg.SMSProviderAPIKey != "" {
+		smsProvider := sms.NewSMSNetBD(cfg.SMSProviderAPIKey, cfg.SMSProviderSenderID, cfg.SMSProviderBaseURL)
+		smsWorker = sms.NewSMSWorker(smsProvider, redisClient, asynqClient)
+		smsWorker.SetConvexClient(convexClient)
+	}
+
 	// Register task handlers
 	mux := asynq.NewServeMux()
 	mux.HandleFunc(worker.TaskQRGenerateBatch, qrHandler.HandleGenerateBatch)
@@ -107,6 +118,14 @@ func main() {
 	mux.HandleFunc(scan.TaskConvexSync, scan.HandleConvexSync(convexClient))
 	mux.HandleFunc(scan.TaskFoodScanPGWrite, scan.HandleFoodScanPGWrite(pgPool))
 	mux.HandleFunc(scan.TaskFoodScanConvexSync, scan.HandleFoodScanConvexSync(convexClient))
+	if smsWorker != nil {
+		mux.HandleFunc(sms.TypeSMSBatch, smsWorker.HandleSMSBatch)
+		mux.HandleFunc(sms.TypeSMSSendBatch, smsWorker.HandleSMSSendBatch)
+		mux.HandleFunc(sms.TypeSMSRetry, smsWorker.HandleSMSRetry)
+		mux.HandleFunc(sms.TypeSMSStatusPoll, smsWorker.HandleSMSStatusPoll)
+	} else {
+		logger.Warn("SMS provider API key not set — SMS tasks will not be processed")
+	}
 
 	// Start worker in goroutine
 	go func() {

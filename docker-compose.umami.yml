@@ -1,0 +1,81 @@
+# docker-compose.umami.yml
+# Self-hosted Umami analytics — deploy as a SEPARATE Dokploy app so it's
+# isolated from EventArc's scan hot-path DB. No Redis required.
+#
+# Dokploy usage:
+#   1. Create a second "Docker Compose" application in Dokploy (not the same
+#      app as EventArc).
+#   2. Point it to this repo, set compose file to docker-compose.umami.yml
+#   3. Add env vars from .env.umami.example in the Dokploy UI.
+#   4. Add a domain (e.g. analytics.altoras.com) via Dokploy UI for service
+#      "umami".
+#   5. Deploy. First login: admin / umami (change it immediately).
+#
+# After deploy:
+#   - Log in, go to Settings → Websites → Add website.
+#   - Copy the Website ID and the tracker script URL.
+#   - Set VITE_UMAMI_WEBSITE_ID and VITE_UMAMI_SCRIPT_URL in the EventArc
+#     Dokploy app and redeploy the frontend.
+
+services:
+  umami:
+    image: ghcr.io/umami-software/umami:postgresql-v2.19.0
+    restart: unless-stopped
+    expose:
+      - "3000"
+    environment:
+      DATABASE_URL: postgres://umami:${UMAMI_DB_PASSWORD}@umami-db:5432/umami
+      DATABASE_TYPE: postgresql
+      APP_SECRET: ${UMAMI_APP_SECRET}
+      # Optional hardening — disable public registration so only admins login.
+      DISABLE_LOGIN: "false"
+      TRACKER_SCRIPT_NAME: ${UMAMI_TRACKER_SCRIPT_NAME:-script}
+    networks:
+      - dokploy-network
+      - umami-internal
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.umami.rule=Host(`${UMAMI_DOMAIN}`)"
+      - "traefik.http.routers.umami.entrypoints=websecure"
+      - "traefik.http.routers.umami.tls.certResolver=letsencrypt"
+      - "traefik.http.services.umami.loadbalancer.server.port=3000"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/heartbeat"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    depends_on:
+      umami-db:
+        condition: service_healthy
+
+  umami-db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: umami
+      POSTGRES_USER: umami
+      POSTGRES_PASSWORD: ${UMAMI_DB_PASSWORD}
+    command: >
+      postgres
+      -c shared_buffers=64MB
+      -c max_connections=40
+      -c work_mem=2MB
+    volumes:
+      - umami-pgdata:/var/lib/postgresql/data
+    networks:
+      - umami-internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U umami"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  umami-pgdata:
+
+networks:
+  dokploy-network:
+    external: true
+  umami-internal:
+    driver: bridge

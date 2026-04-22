@@ -85,6 +85,27 @@ func (c *Client) SyncFoodConsumption(ctx context.Context, payload FoodConsumptio
 	return c.signedPost(ctx, "/internal/sync/food-consumption", payload)
 }
 
+// SMSStatusSyncPayload carries an SMS delivery state transition to Convex.
+// The Go worker calls this on sent / delivered / failed transitions so the
+// admin dashboard's smsDeliveries view stays consistent with Redis.
+type SMSStatusSyncPayload struct {
+	EventID           string `json:"event_id"`
+	GuestID           string `json:"guest_id"`
+	Phone             string `json:"phone"`
+	Status            string `json:"status"` // queued | sending | sent | delivered | failed
+	ProviderRequestID string `json:"provider_request_id,omitempty"`
+	FailureReason     string `json:"failure_reason,omitempty"`
+	LastAttemptAt     string `json:"last_attempt_at,omitempty"` // RFC3339
+}
+
+// SyncSMSStatus writes an SMS delivery status change back to Convex.
+func (c *Client) SyncSMSStatus(ctx context.Context, payload SMSStatusSyncPayload) error {
+	if !c.IsConfigured() {
+		return fmt.Errorf("convex sync client is not configured")
+	}
+	return c.signedPost(ctx, "/internal/sync/sms-status", payload)
+}
+
 func (c *Client) signedPost(ctx context.Context, path string, payload any) error {
 	body, err := json.Marshal(payload)
 	if err != nil {

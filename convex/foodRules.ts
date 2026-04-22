@@ -1,5 +1,22 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { mutation, query, type MutationCtx } from "./_generated/server";
+import { internal } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
+
+// Schedule a Redis re-sync of food rules, but only for live events. Non-live
+// edits don't need to push — pushEventToGo + syncFoodRules already runs on
+// the draft→live transition. This keeps admin config edits mid-event from
+// leaving Redis serving stale rules.
+async function scheduleFoodRulesSync(
+  ctx: MutationCtx,
+  eventId: Id<"events">,
+): Promise<void> {
+  const event = await ctx.db.get(eventId);
+  if (!event || event.status !== "live") {
+    return;
+  }
+  await ctx.scheduler.runAfter(0, internal.sync.syncFoodRules, { eventId });
+}
 
 /**
  * Food rules CRUD for the admin-configured matrix of
@@ -62,17 +79,21 @@ export const setRule = mutation({
       )
       .unique();
 
+    let ruleId: Id<"foodRules">;
     if (existing) {
       await ctx.db.patch(existing._id, { limit: args.limit });
-      return existing._id;
+      ruleId = existing._id;
     } else {
-      return await ctx.db.insert("foodRules", {
+      ruleId = await ctx.db.insert("foodRules", {
         eventId: args.eventId,
         guestCategoryId: args.guestCategoryId,
         foodCategoryId: args.foodCategoryId,
         limit: args.limit,
       });
     }
+
+    await scheduleFoodRulesSync(ctx, args.eventId);
+    return ruleId;
   },
 });
 
@@ -115,12 +136,18 @@ export const setBulkRules = mutation({
         limit: rule.limit,
       });
     }
+
+    await scheduleFoodRulesSync(ctx, args.eventId);
   },
 });
 
 export const deleteRule = mutation({
   args: { ruleId: v.id("foodRules") },
   handler: async (ctx, args) => {
+    const rule = await ctx.db.get(args.ruleId);
     await ctx.db.delete(args.ruleId);
+    if (rule) {
+      await scheduleFoodRulesSync(ctx, rule.eventId);
+    }
   },
 });

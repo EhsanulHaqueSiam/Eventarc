@@ -34,11 +34,10 @@ Dokploy is a self-hosted PaaS that runs on any VPS. It handles builds, SSL, doma
    | `API_DOMAIN` | `api.yourdomain.com` |
    | `HMAC_SECRET` | `openssl rand -hex 32` |
    | `PG_PASSWORD` | `openssl rand -hex 24` |
-   | `VITE_CONVEX_URL` | `https://your-project.convex.cloud` |
-   | `VITE_CONVEX_SITE_URL` | `https://your-project.convex.site` |
+   | `VITE_CONVEX_URL` | `https://your-project.convex.cloud` (client SDK host) |
+   | `VITE_CONVEX_SITE_URL` | `https://your-project.convex.site` (HTTP actions host) |
    | `VITE_API_URL` | `https://api.yourdomain.com` |
-   | `CONVEX_URL` | `https://your-project.convex.cloud` |
-   | `CONVEX_DEPLOYMENT_TOKEN` | From Convex dashboard |
+   | `CONVEX_URL` | `https://your-project.convex.site` ( **MUST** be `.convex.site`, not `.convex.cloud` — Go calls httpAction routes) |
    | `R2_ACCOUNT_ID` | Cloudflare account ID |
    | `R2_ACCESS_KEY_ID` | R2 API token |
    | `R2_SECRET_ACCESS_KEY` | R2 API secret |
@@ -62,17 +61,10 @@ Dokploy is a self-hosted PaaS that runs on any VPS. It handles builds, SSL, doma
 
 5. **Deploy** — click Deploy in Dokploy
 
-6. **Run database migrations** — SSH into your server:
-   ```bash
-   # Find the postgres container
-   docker ps | grep postgres
-
-   # Apply migrations
-   cat backend/migrations/000001_init.up.sql | docker exec -i <postgres-container> psql -U eventarc eventarc
-   cat backend/migrations/000002_scan_processing.up.sql | docker exec -i <postgres-container> psql -U eventarc eventarc
-   cat backend/migrations/000003_food_scans.up.sql | docker exec -i <postgres-container> psql -U eventarc eventarc
-   cat backend/migrations/000004_additional_guests.up.sql | docker exec -i <postgres-container> psql -U eventarc eventarc
-   ```
+6. **Database migrations** — handled automatically. The compose file
+   includes a one-shot `migrate` service that runs `/server migrate`
+   (embedded `backend/migrations/*.sql`) against PostgreSQL directly
+   (bypassing PgBouncer) before `api` and `worker` start. No manual step.
 
 7. **Set Convex environment variables** in [Convex Dashboard](https://dashboard.convex.dev) > Settings > Environment Variables:
 
@@ -89,6 +81,35 @@ Dokploy is a self-hosted PaaS that runs on any VPS. It handles builds, SSL, doma
 ### Auto-Deploy
 
 Enable webhooks in Dokploy to auto-deploy on push to your main branch.
+
+### Analytics (optional)
+
+Self-hosted Umami runs as a **separate Dokploy application**. It's isolated
+from EventArc's DB/Redis so a bad analytics query can't affect the scan
+hot path.
+
+1. **Create a second Docker Compose application** in Dokploy.
+2. **Compose file:** `docker-compose.umami.yml` (same repo).
+3. **Environment variables** (see `.env.umami.example`):
+   | Variable | Example |
+   |----------|---------|
+   | `UMAMI_DOMAIN` | `analytics.altoras.com` |
+   | `UMAMI_APP_SECRET` | `openssl rand -hex 32` |
+   | `UMAMI_DB_PASSWORD` | `openssl rand -hex 24` |
+4. **Add a domain** in Dokploy → service `umami`, port `3000`.
+5. **Deploy.** Log in (admin / umami), change the password, create a
+   website entry for your frontend domain. Umami gives you a Website ID
+   and a tracker script URL like `https://analytics.altoras.com/script.js`.
+6. **Back in the EventArc app**, set:
+   ```
+   VITE_UMAMI_WEBSITE_ID=<from umami>
+   VITE_UMAMI_SCRIPT_URL=https://analytics.altoras.com/script.js
+   ```
+   Redeploy. The frontend now loads the tracker only when both vars are
+   set — leave them blank to fully disable analytics.
+
+No Redis required for Umami. Do **not** share EventArc's Postgres with
+Umami — use the dedicated `umami-db` service in the compose file.
 
 ---
 

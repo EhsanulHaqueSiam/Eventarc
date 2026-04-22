@@ -73,10 +73,11 @@ HMAC_SECRET=<generated-hex-64-chars>
 PG_PASSWORD=<generated-hex-48-chars>
 
 # Convex (from `npx convex deploy` output and Convex dashboard)
+# .convex.cloud = client SDK host; .convex.site = HTTP actions host.
+# CONVEX_URL (used by Go backend) MUST be the .convex.site host.
 VITE_CONVEX_URL=https://<project>.convex.cloud
 VITE_CONVEX_SITE_URL=https://<project>.convex.site
-CONVEX_URL=https://<project>.convex.cloud
-CONVEX_DEPLOYMENT_TOKEN=<from-convex-dashboard>
+CONVEX_URL=https://<project>.convex.site
 
 # Frontend needs to know API URL
 VITE_API_URL=https://api.yourdomain.com

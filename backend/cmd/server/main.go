@@ -24,17 +24,29 @@ import (
 )
 
 func main() {
-	cfg := config.Load()
-	cfg.ValidateRequired()
-
-	// Configure structured logging
+	// Configure structured logging first so subcommands share it.
 	var logHandler slog.Handler
-	if cfg.IsProduction() {
+	if os.Getenv("ENV") == "production" {
 		logHandler = slog.NewJSONHandler(os.Stdout, nil)
 	} else {
 		logHandler = slog.NewTextHandler(os.Stdout, nil)
 	}
 	slog.SetDefault(slog.New(logHandler))
+
+	// Subcommand dispatch. Keeping it minimal: `server migrate` runs DB
+	// migrations and exits; no args (or any other value) starts the HTTP
+	// server. This lets the same binary serve as a one-shot init container
+	// in docker-compose without needing a second image.
+	if len(os.Args) > 1 && os.Args[1] == "migrate" {
+		if err := runMigrations(); err != nil {
+			slog.Error("migrations failed", "error", err)
+			os.Exit(1)
+		}
+		return
+	}
+
+	cfg := config.Load()
+	cfg.ValidateRequired()
 
 	ctx := context.Background()
 

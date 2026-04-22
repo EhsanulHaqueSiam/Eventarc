@@ -11,6 +11,8 @@ import (
 
 	"github.com/hibiken/asynq"
 	"github.com/redis/go-redis/v9"
+
+	"github.com/ehsanul-haque-siam/eventarc/internal/convexsync"
 )
 
 // Asynq task type constants for the SMS delivery pipeline.
@@ -68,6 +70,7 @@ type SMSWorker struct {
 	provider         SMSProvider
 	redisClient      *redis.Client
 	asynqClient      *asynq.Client
+	convexClient     *convexsync.Client // optional; if set, terminal status transitions are synced to Convex
 	batchSize        int
 	maxBatchesPerSec int
 	logger           *slog.Logger
@@ -82,6 +85,38 @@ func NewSMSWorker(provider SMSProvider, redisClient *redis.Client, asynqClient *
 		batchSize:        defaultBatchSize,
 		maxBatchesPerSec: defaultMaxBatchesPerSec,
 		logger:           slog.Default(),
+	}
+}
+
+// SetConvexClient wires an optional Convex sync client. When configured, the
+// worker calls /internal/sync/sms-status on sent/failed transitions so the
+// Convex smsDeliveries table stays consistent with Redis.
+func (w *SMSWorker) SetConvexClient(c *convexsync.Client) {
+	w.convexClient = c
+}
+
+// syncSMSStatus fires-and-forgets a status update to Convex. Sync failures are
+// logged but never block the SMS pipeline — Redis remains the authoritative
+// real-time counter; Convex is the durable record.
+func (w *SMSWorker) syncSMSStatus(ctx context.Context, eventID, guestID, phone, status, providerRequestID, failureReason string) {
+	if w.convexClient == nil || !w.convexClient.IsConfigured() {
+		return
+	}
+	if eventID == "" || guestID == "" {
+		return
+	}
+	payload := convexsync.SMSStatusSyncPayload{
+		EventID:           eventID,
+		GuestID:           guestID,
+		Phone:             phone,
+		Status:            status,
+		ProviderRequestID: providerRequestID,
+		FailureReason:     failureReason,
+		LastAttemptAt:     time.Now().UTC().Format(time.RFC3339),
+	}
+	if err := w.convexClient.SyncSMSStatus(ctx, payload); err != nil {
+		w.logger.Warn("SMS status sync to Convex failed",
+			"eventId", eventID, "guestId", guestID, "status", status, "error", err)
 	}
 }
 
@@ -202,6 +237,15 @@ func (w *SMSWorker) HandleSMSSendBatch(ctx context.Context, t *asynq.Task) error
 		w.redisClient.SAdd(ctx, smsProgressKey(payload.EventID, "pending_requests"), resp.RequestID)
 	}
 
+	// Build a lookup set of failed indices so we can tag each batch member
+	// as sent or failed when syncing to Convex.
+	failedByIndex := make(map[int]struct{}, len(resp.Recipients))
+	for i, recipient := range resp.Recipients {
+		if recipient.Status == "Failed" {
+			failedByIndex[i] = struct{}{}
+		}
+	}
+
 	// Check for individual recipient failures
 	for i, recipient := range resp.Recipients {
 		if recipient.Status == "Failed" && i < len(payload.Batch) {
@@ -219,6 +263,18 @@ func (w *SMSWorker) HandleSMSSendBatch(ctx context.Context, t *asynq.Task) error
 				w.logger.Error("failed to dispatch retry task", "error", err)
 			}
 		}
+	}
+
+	// Sync per-guest terminal status to Convex so the admin dashboard reflects
+	// the real state (sent vs initial failed) after this batch.
+	for i, gp := range payload.Batch {
+		if _, failed := failedByIndex[i]; failed {
+			// Intentional: retry pipeline handles the final "failed" sync
+			// after max retries. Skip syncing an intermediate failed state
+			// to avoid flapping the Convex record.
+			continue
+		}
+		w.syncSMSStatus(ctx, payload.EventID, gp.GuestID, gp.Phone, "sent", resp.RequestID, "")
 	}
 
 	w.logger.Info("SMS batch sent",
@@ -246,6 +302,8 @@ func (w *SMSWorker) HandleSMSRetry(ctx context.Context, t *asynq.Task) error {
 			"phone", payload.Phone,
 			"retries", payload.RetryCount,
 		)
+		w.syncSMSStatus(ctx, payload.EventID, payload.GuestID, payload.Phone,
+			"failed", "", fmt.Sprintf("max retries (%d) exceeded", payload.RetryCount))
 		return nil
 	}
 
@@ -280,6 +338,7 @@ func (w *SMSWorker) HandleSMSRetry(ctx context.Context, t *asynq.Task) error {
 
 	// Success — update counters
 	w.redisClient.Incr(ctx, smsProgressKey(payload.EventID, "sent"))
+	w.syncSMSStatus(ctx, payload.EventID, payload.GuestID, payload.Phone, "sent", "", "")
 	return nil
 }
 

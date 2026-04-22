@@ -21,9 +21,11 @@ services:
         VITE_CONVEX_URL: ${VITE_CONVEX_URL}
         VITE_CONVEX_SITE_URL: ${VITE_CONVEX_SITE_URL}
         VITE_API_URL: ${VITE_API_URL}
+        VITE_UMAMI_WEBSITE_ID: ${VITE_UMAMI_WEBSITE_ID:-}
+        VITE_UMAMI_SCRIPT_URL: ${VITE_UMAMI_SCRIPT_URL:-}
     restart: unless-stopped
     expose:
-      - "80"
+      - "8080"
     networks:
       - dokploy-network
       - internal
@@ -32,7 +34,7 @@ services:
       - "traefik.http.routers.eventarc-frontend.rule=Host(`${FRONTEND_DOMAIN}`)"
       - "traefik.http.routers.eventarc-frontend.entrypoints=websecure"
       - "traefik.http.routers.eventarc-frontend.tls.certResolver=letsencrypt"
-      - "traefik.http.services.eventarc-frontend.loadbalancer.server.port=80"
+      - "traefik.http.services.eventarc-frontend.loadbalancer.server.port=8080"
     depends_on:
       api:
         condition: service_healthy
@@ -57,7 +59,6 @@ services:
       - R2_BUCKET_NAME=${R2_BUCKET_NAME:-eventarc-qr}
       - R2_PUBLIC_URL=${R2_PUBLIC_URL}
       - CONVEX_URL=${CONVEX_URL}
-      - CONVEX_DEPLOYMENT_TOKEN=${CONVEX_DEPLOYMENT_TOKEN}
       - SMS_PROVIDER_API_KEY=${SMS_PROVIDER_API_KEY:-}
       - SMS_PROVIDER_SENDER_ID=${SMS_PROVIDER_SENDER_ID:-}
       - SMS_PROVIDER_BASE_URL=${SMS_PROVIDER_BASE_URL:-https://api.sms.net.bd}
@@ -79,6 +80,8 @@ services:
       retries: 5
       start_period: 30s
     depends_on:
+      migrate:
+        condition: service_completed_successfully
       pgbouncer:
         condition: service_healthy
       redis:
@@ -101,7 +104,6 @@ services:
       - R2_BUCKET_NAME=${R2_BUCKET_NAME:-eventarc-qr}
       - R2_PUBLIC_URL=${R2_PUBLIC_URL}
       - CONVEX_URL=${CONVEX_URL}
-      - CONVEX_DEPLOYMENT_TOKEN=${CONVEX_DEPLOYMENT_TOKEN}
       - SMS_PROVIDER_API_KEY=${SMS_PROVIDER_API_KEY:-}
       - SMS_PROVIDER_SENDER_ID=${SMS_PROVIDER_SENDER_ID:-}
       - SMS_PROVIDER_BASE_URL=${SMS_PROVIDER_BASE_URL:-https://api.sms.net.bd}
@@ -116,6 +118,8 @@ services:
           memory: ${WORKER_MEMORY_LIMIT:-512M}
           cpus: "${WORKER_CPU_LIMIT:-2}"
     depends_on:
+      migrate:
+        condition: service_completed_successfully
       pgbouncer:
         condition: service_healthy
       redis:
@@ -202,28 +206,23 @@ services:
       timeout: 3s
       retries: 5
 
-  # ── Database Migrations (run once) ──────────────────────────────────
+  # ── Database Migrations (runs once per deploy) ──────────────────────
+  # Bypasses PgBouncer (transaction pooling is incompatible with advisory
+  # locks used by golang-migrate). Connects directly to postgres:5432.
+  # `api` and `worker` depend on this service completing successfully.
   migrate:
     build:
       context: ./backend
       target: server
-    entrypoint: ["/bin/sh", "-c"]
-    command:
-      - |
-        echo "Waiting for PostgreSQL..."
-        while ! wget -q --spider http://pgbouncer:5432 2>/dev/null; do sleep 1; done
-        echo "Running migrations..."
-        /server migrate 2>/dev/null || echo "Migration command not available, skipping..."
+    command: ["/server", "migrate"]
     environment:
-      - DATABASE_URL=postgres://eventarc:${PG_PASSWORD}@postgres:5432/eventarc?sslmode=disable
+      - MIGRATE_DATABASE_URL=postgres://eventarc:${PG_PASSWORD}@postgres:5432/eventarc?sslmode=disable
     networks:
       - internal
     depends_on:
       postgres:
         condition: service_healthy
     restart: "no"
-    profiles:
-      - migrate
 
 volumes:
   pgdata:

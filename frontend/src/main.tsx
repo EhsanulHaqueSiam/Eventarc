@@ -8,7 +8,10 @@ import { Toaster } from "sonner";
 import { convex } from "./lib/convex";
 import { authClient } from "./lib/auth-client";
 import { routeTree } from "./routeTree.gen";
+import { initAnalytics } from "./lib/analytics";
 import "./app.css";
+
+initAnalytics();
 
 const router = createRouter({ routeTree });
 

@@ -3,6 +3,7 @@ package config
 import (
 	"log"
 	"os"
+	"strings"
 )
 
 // Config holds application configuration loaded from environment variables.
@@ -21,8 +22,7 @@ type Config struct {
 	// Scan processing
 	ScanTimeout string // request timeout for scan endpoint (default "5s")
 	// Convex integration
-	ConvexURL             string // URL for Convex HTTP API
-	ConvexDeploymentToken string // Auth token for Convex admin API
+	ConvexURL string // URL for Convex HTTP actions — MUST be the *.convex.site host
 	// SMS provider
 	SMSProviderAPIKey   string // API key for SMS provider
 	SMSProviderSenderID string // Approved sender ID (optional)
@@ -32,22 +32,21 @@ type Config struct {
 // Load reads configuration from environment variables with sensible defaults.
 func Load() *Config {
 	return &Config{
-		Port:                  getEnv("PORT", "8080"),
-		Env:                   getEnv("ENV", "development"),
-		DatabaseURL:           getEnv("DATABASE_URL", "postgres://eventarc:dev_password@localhost:6432/eventarc?sslmode=disable"),
-		RedisURL:              getEnv("REDIS_URL", "redis://localhost:6379"),
-		HMACSecret:            getEnv("HMAC_SECRET", ""),
-		R2AccountID:           getEnv("R2_ACCOUNT_ID", ""),
-		R2AccessKeyID:         getEnv("R2_ACCESS_KEY_ID", ""),
-		R2SecretAccessKey:     getEnv("R2_SECRET_ACCESS_KEY", ""),
-		R2BucketName:          getEnv("R2_BUCKET_NAME", "eventarc-qr"),
-		R2PublicURL:           getEnv("R2_PUBLIC_URL", ""),
-		ScanTimeout:           getEnv("SCAN_TIMEOUT", "5s"),
-		ConvexURL:             getEnv("CONVEX_URL", ""),
-		ConvexDeploymentToken: getEnv("CONVEX_DEPLOYMENT_TOKEN", ""),
-		SMSProviderAPIKey:    getEnv("SMS_PROVIDER_API_KEY", ""),
-		SMSProviderSenderID:  getEnv("SMS_PROVIDER_SENDER_ID", ""),
-		SMSProviderBaseURL:   getEnv("SMS_PROVIDER_BASE_URL", "https://api.sms.net.bd"),
+		Port:                getEnv("PORT", "8080"),
+		Env:                 getEnv("ENV", "development"),
+		DatabaseURL:         getEnv("DATABASE_URL", "postgres://eventarc:dev_password@localhost:6432/eventarc?sslmode=disable"),
+		RedisURL:            getEnv("REDIS_URL", "redis://localhost:6379"),
+		HMACSecret:          getEnv("HMAC_SECRET", ""),
+		R2AccountID:         getEnv("R2_ACCOUNT_ID", ""),
+		R2AccessKeyID:       getEnv("R2_ACCESS_KEY_ID", ""),
+		R2SecretAccessKey:   getEnv("R2_SECRET_ACCESS_KEY", ""),
+		R2BucketName:        getEnv("R2_BUCKET_NAME", "eventarc-qr"),
+		R2PublicURL:         getEnv("R2_PUBLIC_URL", ""),
+		ScanTimeout:         getEnv("SCAN_TIMEOUT", "5s"),
+		ConvexURL:           getEnv("CONVEX_URL", ""),
+		SMSProviderAPIKey:   getEnv("SMS_PROVIDER_API_KEY", ""),
+		SMSProviderSenderID: getEnv("SMS_PROVIDER_SENDER_ID", ""),
+		SMSProviderBaseURL:  getEnv("SMS_PROVIDER_BASE_URL", "https://api.sms.net.bd"),
 	}
 }
 
@@ -61,6 +60,15 @@ func (c *Config) IsProduction() bool {
 func (c *Config) ValidateRequired() {
 	if len(c.HMACSecret) < 32 {
 		log.Fatalf("FATAL: HMAC_SECRET must be set and at least 32 bytes (got %d bytes)", len(c.HMACSecret))
+	}
+
+	// Convex httpAction routes (/internal/sync/*) are served on *.convex.site.
+	// Using the *.convex.cloud host returns silent 404s for every sync call,
+	// breaking the Go→Convex writeback path. Fail fast with a clear message.
+	if c.ConvexURL != "" && strings.Contains(c.ConvexURL, ".convex.cloud") {
+		log.Fatalf("FATAL: CONVEX_URL must point to the .convex.site host (got %q). " +
+			"Use https://<project>.convex.site — .convex.cloud is the client SDK endpoint, " +
+			"not the HTTP actions endpoint the Go backend calls.", c.ConvexURL)
 	}
 }
 

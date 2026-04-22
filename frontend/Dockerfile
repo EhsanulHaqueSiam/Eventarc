@@ -17,16 +17,21 @@ COPY convex/ ./convex/
 # Copy frontend source
 COPY frontend/ ./frontend/
 
-# Build args become VITE_ env vars at build time
+# Build args become VITE_ env vars at build time. Umami args are optional —
+# frontend/src/lib/analytics.ts no-ops when they're unset.
 ARG VITE_CONVEX_URL
 ARG VITE_CONVEX_SITE_URL
 ARG VITE_API_URL
+ARG VITE_UMAMI_WEBSITE_ID
+ARG VITE_UMAMI_SCRIPT_URL
 
 RUN cd frontend && pnpm build
 
-# Runtime stage — lightweight nginx to serve static SPA
-FROM nginx:alpine
+# Runtime stage — nginx-unprivileged runs fully as the non-root `nginx` user
+# on port 8080 (no root master process). Traefik/Dokploy reach it via the
+# internal network so binding :80 isn't needed.
+FROM nginxinc/nginx-unprivileged:alpine
 COPY frontend/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=builder /app/frontend/dist /usr/share/nginx/html
-EXPOSE 80
+EXPOSE 8080
 CMD ["nginx", "-g", "daemon off;"]

@@ -35,7 +35,7 @@ services:
       api:
         condition: service_healthy
 
-  # ── Frontend (React SPA via nginx) ──────────────────────────────────
+  # ── Frontend (React SPA via nginx-unprivileged on :8080) ────────────
   frontend:
     build:
       context: .
@@ -44,9 +44,11 @@ services:
         VITE_CONVEX_URL: ${VITE_CONVEX_URL}
         VITE_CONVEX_SITE_URL: ${VITE_CONVEX_SITE_URL}
         VITE_API_URL: ${VITE_API_URL}
+        VITE_UMAMI_WEBSITE_ID: ${VITE_UMAMI_WEBSITE_ID:-}
+        VITE_UMAMI_SCRIPT_URL: ${VITE_UMAMI_SCRIPT_URL:-}
     restart: unless-stopped
     expose:
-      - "80"
+      - "8080"
     networks:
       - frontend
     depends_on:
@@ -73,7 +75,6 @@ services:
       - R2_BUCKET_NAME=${R2_BUCKET_NAME:-eventarc-qr}
       - R2_PUBLIC_URL=${R2_PUBLIC_URL}
       - CONVEX_URL=${CONVEX_URL}
-      - CONVEX_DEPLOYMENT_TOKEN=${CONVEX_DEPLOYMENT_TOKEN}
       - SMS_PROVIDER_API_KEY=${SMS_PROVIDER_API_KEY:-}
       - SMS_PROVIDER_SENDER_ID=${SMS_PROVIDER_SENDER_ID:-}
       - SMS_PROVIDER_BASE_URL=${SMS_PROVIDER_BASE_URL:-https://api.sms.net.bd}
@@ -89,6 +90,8 @@ services:
       retries: 5
       start_period: 30s
     depends_on:
+      migrate:
+        condition: service_completed_successfully
       pgbouncer:
         condition: service_healthy
       redis:
@@ -111,7 +114,6 @@ services:
       - R2_BUCKET_NAME=${R2_BUCKET_NAME:-eventarc-qr}
       - R2_PUBLIC_URL=${R2_PUBLIC_URL}
       - CONVEX_URL=${CONVEX_URL}
-      - CONVEX_DEPLOYMENT_TOKEN=${CONVEX_DEPLOYMENT_TOKEN}
       - SMS_PROVIDER_API_KEY=${SMS_PROVIDER_API_KEY:-}
       - SMS_PROVIDER_SENDER_ID=${SMS_PROVIDER_SENDER_ID:-}
       - SMS_PROVIDER_BASE_URL=${SMS_PROVIDER_BASE_URL:-https://api.sms.net.bd}
@@ -126,10 +128,29 @@ services:
           memory: ${WORKER_MEMORY_LIMIT:-512M}
           cpus: "${WORKER_CPU_LIMIT:-2}"
     depends_on:
+      migrate:
+        condition: service_completed_successfully
       pgbouncer:
         condition: service_healthy
       redis:
         condition: service_healthy
+
+  # ── Database Migrations (runs once per deploy) ──────────────────────
+  # Bypasses PgBouncer (transaction pooling is incompatible with advisory
+  # locks used by golang-migrate). Connects directly to postgres:5432.
+  migrate:
+    build:
+      context: ./backend
+      target: server
+    command: ["/server", "migrate"]
+    environment:
+      - MIGRATE_DATABASE_URL=postgres://eventarc:${PG_PASSWORD}@postgres:5432/eventarc?sslmode=disable
+    networks:
+      - internal
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
 
   # ── PostgreSQL 17 ───────────────────────────────────────────────────
   postgres:
