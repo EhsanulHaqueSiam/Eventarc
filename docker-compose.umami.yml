@@ -1,10 +1,13 @@
 # docker-compose.umami.yml
-# Self-hosted Umami analytics — deploy as a SEPARATE Dokploy app so it's
-# isolated from EventArc's scan hot-path DB. No Redis required.
+# Self-hosted Umami analytics — mirrors the upstream compose file at
+# https://github.com/umami-software/umami/blob/master/docker-compose.yml
+# with the two minimum adjustments needed for Dokploy:
+#   1. `expose:` instead of `ports:` so Traefik is the only ingress.
+#   2. External `dokploy-network` so Traefik can reach the umami service.
 #
 # Dokploy usage:
-#   1. Create a "Docker Compose" application in Dokploy (not "Application").
-#   2. Point it at this repo, set compose file to docker-compose.umami.yml
+#   1. Create a "Docker Compose" application (not "Application").
+#   2. Point it at this repo, compose file: docker-compose.umami.yml
 #   3. Add env vars from .env.umami.example in the Dokploy UI.
 #   4. In the Domains tab, add:
 #        Host:            analytics.altoras.com
@@ -12,78 +15,57 @@
 #        Container Port:  3000
 #        HTTPS:           on
 #        Certificate:     Let's Encrypt
-#      (Routing is managed entirely by Dokploy's Domains UI. This compose
-#      file intentionally has NO traefik.* labels — avoids double-router
-#      conflicts.)
 #   5. Deploy. First login: admin / umami (change it immediately).
 #
-# After deploy:
-#   - Log in, go to Settings → Websites → Add website.
-#   - Copy the Website ID and the tracker script URL.
-#   - Set VITE_UMAMI_WEBSITE_ID and VITE_UMAMI_SCRIPT_URL in the EventArc
-#     Dokploy app and redeploy the frontend.
+# After deploy — add websites to track:
+#   Umami admin → Settings → Websites → + Add Website.
+#   Copy the Website ID and the /script.js URL.
+#   Set VITE_UMAMI_WEBSITE_ID + VITE_UMAMI_SCRIPT_URL in each tracked app.
 
 services:
   umami:
-    # Umami v3 (current: v3.1.0) dropped the `postgresql-` tag prefix —
-    # plain `:latest` is the canonical image per the upstream compose file
-    # at https://github.com/umami-software/umami/blob/master/docker-compose.yml
     image: ghcr.io/umami-software/umami:latest
-    restart: unless-stopped
-    # `init: true` enables tini so SIGTERM propagates cleanly to the Node
-    # process on redeploy. Matches upstream recommendation.
     init: true
+    restart: always
     expose:
       - "3000"
     environment:
-      DATABASE_URL: postgresql://umami:${UMAMI_DB_PASSWORD}@umami-db:5432/umami
-      DATABASE_TYPE: postgresql
+      DATABASE_URL: postgresql://umami:${UMAMI_DB_PASSWORD}@db:5432/umami
       APP_SECRET: ${UMAMI_APP_SECRET}
-      # DISABLE_LOGIN intentionally omitted. Umami checks it as
-      # `if (process.env.DISABLE_LOGIN)`, and the string "false" is TRUTHY
-      # in JavaScript, which would lock everyone out with "Access denied".
-      # Leave it unset to enable login.
-      TRACKER_SCRIPT_NAME: ${UMAMI_TRACKER_SCRIPT_NAME:-script}
     networks:
       - dokploy-network
-      - umami-internal
+      - internal
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://localhost:3000/api/heartbeat || exit 1"]
-      interval: 15s
+      test: ["CMD-SHELL", "curl http://localhost:3000/api/heartbeat"]
+      interval: 5s
       timeout: 5s
       retries: 5
-      start_period: 60s
     depends_on:
-      umami-db:
+      db:
         condition: service_healthy
 
-  umami-db:
-    image: postgres:17-alpine
-    restart: unless-stopped
+  db:
+    image: postgres:15-alpine
+    restart: always
     environment:
       POSTGRES_DB: umami
       POSTGRES_USER: umami
       POSTGRES_PASSWORD: ${UMAMI_DB_PASSWORD}
-    command: >
-      postgres
-      -c shared_buffers=64MB
-      -c max_connections=40
-      -c work_mem=2MB
     volumes:
-      - umami-pgdata:/var/lib/postgresql/data
+      - umami-db-data:/var/lib/postgresql/data
     networks:
-      - umami-internal
+      - internal
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U umami"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
-      timeout: 3s
+      timeout: 5s
       retries: 5
 
 volumes:
-  umami-pgdata:
+  umami-db-data:
 
 networks:
   dokploy-network:
     external: true
-  umami-internal:
+  internal:
     driver: bridge
