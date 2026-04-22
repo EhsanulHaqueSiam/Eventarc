@@ -12,6 +12,7 @@ import {
 import { CheckCircle2, AlertTriangle } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { useImportStore } from "./use-import-store";
+import { trackEvent } from "@/lib/analytics";
 
 const CHUNK_SIZE = 500;
 
@@ -145,11 +146,23 @@ export function StepConfirm({ eventId }: StepConfirmProps) {
         totalErrors,
         totalSkipped: skippedCount,
       });
+      trackEvent("guest_import_complete", {
+        eventId,
+        totalInserted,
+        totalErrors,
+        totalSkipped: skippedCount,
+        chunkSize: CHUNK_SIZE,
+      });
     } catch {
       setImportResult({
         totalInserted,
         totalErrors: totalErrors + 1,
         totalSkipped: skippedCount,
+      });
+      trackEvent("guest_import_failed", {
+        eventId,
+        totalInserted,
+        totalErrors: totalErrors + 1,
       });
     } finally {
       setIsImporting(false);

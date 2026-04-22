@@ -16,6 +16,7 @@ import {
 import { Check } from "lucide-react";
 import { toast } from "sonner";
 import { motion, useReducedMotion } from "motion/react";
+import { trackEvent } from "@/lib/analytics";
 
 type EventStatus = "draft" | "active" | "live" | "completed" | "archived";
 
@@ -48,6 +49,11 @@ export function LifecycleStepper({ eventId, eventName, status }: LifecycleSteppe
   const handleTransition = async (newStatus: EventStatus) => {
     try {
       await updateStatus({ eventId, newStatus });
+      trackEvent(`event_transition_${newStatus}`, {
+        eventId,
+        fromStatus: status,
+        toStatus: newStatus,
+      });
       toast.success(`Event transitioned to ${newStatus}`);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : `Could not transition to ${newStatus}. Try again.`);

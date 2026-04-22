@@ -19,6 +19,7 @@ import { SMSDashboard } from "@/components/cards/sms-dashboard";
 import { useState } from "react";
 import { toast } from "sonner";
 import type { OverlayConfig } from "@/hooks/use-card-editor";
+import { trackEvent } from "@/lib/analytics";
 
 export const Route = createFileRoute("/events/$eventId/cards")({
   component: CardsPage,
@@ -74,6 +75,7 @@ function CardsPage() {
 
   const handleGenerateCards = () => {
     // Will trigger POST to Go backend once compositing endpoint is wired
+    trackEvent("card_generation_triggered", { eventId });
     toast.info("Card generation will be triggered via the Go backend");
   };
 

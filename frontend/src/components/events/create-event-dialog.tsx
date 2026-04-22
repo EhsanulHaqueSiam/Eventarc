@@ -16,6 +16,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Plus, ChevronDown, ChevronRight } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
+import { trackEvent } from "@/lib/analytics";
 
 export function CreateEventDialog() {
   const navigate = useNavigate();
@@ -51,6 +52,13 @@ export function CreateEventDialog() {
           allowAdditionalGuests: allowAdditionalGuests || undefined,
           maxAdditionalGuests: allowAdditionalGuests ? maxAdditionalGuests : undefined,
         },
+      });
+      trackEvent("event_created", {
+        eventId,
+        qrStrategy,
+        foodQrMode,
+        foodQrTiming,
+        allowAdditionalGuests,
       });
       toast.success("Event created");
       setOpen(false);

@@ -29,6 +29,7 @@ import { SMSStatusBadge } from "./sms-status-badge";
 import { SMSTemplateEditor } from "./sms-template-editor";
 import { Send, RefreshCw, MessageSquare } from "lucide-react";
 import { toast } from "sonner";
+import { trackEvent } from "@/lib/analytics";
 
 interface SMSDashboardProps {
   eventId: Id<"events">;
@@ -259,11 +260,13 @@ export function SMSDashboard({ eventId }: SMSDashboardProps) {
         eventId,
         messageTemplate,
       });
+      trackEvent("sms_batch_sent", { eventId });
       toast.success("SMS invitations queued for delivery");
       await refreshProgress();
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Failed to send invitations";
+      trackEvent("sms_batch_failed", { eventId, reason: message });
       toast.error(message);
     } finally {
       setIsSending(false);
@@ -287,6 +290,7 @@ export function SMSDashboard({ eventId }: SMSDashboardProps) {
         eventId,
         messageTemplate,
       });
+      trackEvent("sms_retry_failed", { eventId });
       toast.success("Retrying failed SMS deliveries");
       await refreshProgress();
     } catch (error) {

@@ -24,8 +24,9 @@ export function initAnalytics(): void {
   script.defer = true;
   script.setAttribute("data-website-id", websiteId);
   script.setAttribute("data-umami-loaded", "true");
-  // Respect Do Not Track.
-  script.setAttribute("data-do-not-track", "true");
+  // EventArc is an internal ops tool behind auth. Missing data on vendors
+  // or admins with browser DNT on would defeat the purpose. Umami is
+  // cookieless and collects no PII regardless.
   document.head.appendChild(script);
 }
 
