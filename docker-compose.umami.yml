@@ -3,12 +3,18 @@
 # isolated from EventArc's scan hot-path DB. No Redis required.
 #
 # Dokploy usage:
-#   1. Create a second "Docker Compose" application in Dokploy (not the same
-#      app as EventArc).
-#   2. Point it to this repo, set compose file to docker-compose.umami.yml
+#   1. Create a "Docker Compose" application in Dokploy (not "Application").
+#   2. Point it at this repo, set compose file to docker-compose.umami.yml
 #   3. Add env vars from .env.umami.example in the Dokploy UI.
-#   4. Add a domain (e.g. analytics.altoras.com) via Dokploy UI for service
-#      "umami".
+#   4. In the Domains tab, add:
+#        Host:            analytics.altoras.com
+#        Service Name:    umami
+#        Container Port:  3000
+#        HTTPS:           on
+#        Certificate:     Let's Encrypt
+#      (Routing is managed entirely by Dokploy's Domains UI. This compose
+#      file intentionally has NO traefik.* labels — avoids double-router
+#      conflicts.)
 #   5. Deploy. First login: admin / umami (change it immediately).
 #
 # After deploy:
@@ -27,18 +33,11 @@ services:
       DATABASE_URL: postgres://umami:${UMAMI_DB_PASSWORD}@umami-db:5432/umami
       DATABASE_TYPE: postgresql
       APP_SECRET: ${UMAMI_APP_SECRET}
-      # Optional hardening — disable public registration so only admins login.
       DISABLE_LOGIN: "false"
       TRACKER_SCRIPT_NAME: ${UMAMI_TRACKER_SCRIPT_NAME:-script}
     networks:
       - dokploy-network
       - umami-internal
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.umami.rule=Host(`${UMAMI_DOMAIN}`)"
-      - "traefik.http.routers.umami.entrypoints=websecure"
-      - "traefik.http.routers.umami.tls.certResolver=letsencrypt"
-      - "traefik.http.services.umami.loadbalancer.server.port=3000"
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/heartbeat"]
       interval: 15s
