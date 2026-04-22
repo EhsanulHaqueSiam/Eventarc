@@ -25,12 +25,18 @@
 
 services:
   umami:
-    image: ghcr.io/umami-software/umami:postgresql-v2.19.0
+    # Umami v3 (current: v3.1.0) dropped the `postgresql-` tag prefix —
+    # plain `:latest` is the canonical image per the upstream compose file
+    # at https://github.com/umami-software/umami/blob/master/docker-compose.yml
+    image: ghcr.io/umami-software/umami:latest
     restart: unless-stopped
+    # `init: true` enables tini so SIGTERM propagates cleanly to the Node
+    # process on redeploy. Matches upstream recommendation.
+    init: true
     expose:
       - "3000"
     environment:
-      DATABASE_URL: postgres://umami:${UMAMI_DB_PASSWORD}@umami-db:5432/umami
+      DATABASE_URL: postgresql://umami:${UMAMI_DB_PASSWORD}@umami-db:5432/umami
       DATABASE_TYPE: postgresql
       APP_SECRET: ${UMAMI_APP_SECRET}
       DISABLE_LOGIN: "false"
@@ -39,11 +45,11 @@ services:
       - dokploy-network
       - umami-internal
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/heartbeat"]
+      test: ["CMD-SHELL", "curl -fsS http://localhost:3000/api/heartbeat || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 5
-      start_period: 30s
+      start_period: 60s
     depends_on:
       umami-db:
         condition: service_healthy
